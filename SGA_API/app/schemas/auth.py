@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegistroUsuario(BaseModel):
@@ -6,8 +6,13 @@ class RegistroUsuario(BaseModel):
     password: str = Field(min_length=8, max_length=72)
     nombres: str = Field(min_length=2, max_length=80)
     apellidos: str = Field(min_length=2, max_length=80)
-    correo: str = Field(min_length=5, max_length=120)
+    correo: EmailStr
     telefono: str | None = Field(default=None, max_length=25)
+
+    @field_validator("username", "nombres", "apellidos", mode="before")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
 
 
 class LoginUsuario(BaseModel):
@@ -17,7 +22,12 @@ class LoginUsuario(BaseModel):
 
 class TokenRespuesta(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+
+
+class RefreshSolicitud(BaseModel):
+    refresh_token: str = Field(min_length=20)
 
 
 class UsuarioRespuesta(BaseModel):
@@ -26,3 +36,5 @@ class UsuarioRespuesta(BaseModel):
     rol: str
     nombres: str
     apellidos: str
+    correo: EmailStr
+    activo: bool

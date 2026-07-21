@@ -1,6 +1,16 @@
-# Sustituye api.tu-dominio.com por tu dominio antes de desplegar.
-# Caddy emite y renueva automáticamente el certificado SSL.
+# Reemplazar con el dominio real. Caddy emite y renueva el certificado TLS.
 api.tu-dominio.com {
     encode zstd gzip
-    reverse_proxy api:8000
+    header {
+        -Server
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    }
+    @metrics path /metrics
+    respond @metrics 404
+    reverse_proxy api1:8000 api2:8000 {
+        lb_policy round_robin
+        health_uri /api/v1/health
+        health_interval 10s
+        fail_duration 30s
+    }
 }

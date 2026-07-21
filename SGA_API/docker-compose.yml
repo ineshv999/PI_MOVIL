@@ -1,8 +1,7 @@
 services:
   api:
     build: .
-    container_name: sga-api
-    command: sh -c "python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "alembic upgrade head && python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres
@@ -19,24 +18,27 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      EVIDENCE_DIRECTORY: /app/uploads/evidencias
+      MAX_EVIDENCE_SIZE_MB: ${MAX_EVIDENCE_SIZE_MB:-5}
     ports:
-      - "8001:8000"
+      - "${API_EXPOSE_PORT:-8001}:8000"
     volumes:
       - ./:/app
+      - evidence_data:/app/uploads/evidencias
     depends_on:
       postgres:
         condition: service_healthy
 
   postgres:
     image: postgres:16-alpine
-    container_name: sga-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_EXPOSE_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -47,13 +49,12 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:8
-    container_name: sga-pgadmin
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
     ports:
-      - "5050:80"
+      - "${PGADMIN_EXPOSE_PORT:-5050}:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
@@ -63,3 +64,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  evidence_data:

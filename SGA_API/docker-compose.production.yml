@@ -1,22 +1,47 @@
-# Arquitectura de despliegue: Caddy es el único servicio expuesto públicamente.
-# PostgreSQL queda en la red interna y no publica ningún puerto al exterior.
+# Caddy es el unico punto publico. API, PostgreSQL y monitoreo permanecen privados.
+x-api: &api
+  build: .
+  restart: unless-stopped
+  environment: &api-env
+    APP_ENV: production
+    APP_DEBUG: "false"
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: 5432
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+    JWT_ALGORITHM: HS256
+    ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+    REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+    ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS}
+    EVIDENCE_DIRECTORY: /app/uploads/evidencias
+    MAX_EVIDENCE_SIZE_MB: ${MAX_EVIDENCE_SIZE_MB:-5}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+  networks: [private]
+  volumes: [evidence_data:/app/uploads/evidencias]
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+
 services:
-  api:
+  api1:
+    <<: *api
+  api2:
+    <<: *api
+
+  migrate:
     build: .
-    restart: unless-stopped
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
-      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS}
+    restart: "no"
+    command: ["sh", "-c", "alembic upgrade head && python scripts/init_db.py"]
+    environment: *api-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,15 +65,33 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
+    ports: ["80:80", "443:443"]
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [api]
+    depends_on:
+      api1: {condition: service_healthy}
+      api2: {condition: service_healthy}
     networks: [public, private]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks: [private]
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes: [grafana_data:/var/lib/grafana]
+    networks: [private]
 
 networks:
   public:
@@ -57,5 +100,8 @@ networks:
 
 volumes:
   postgres_production:
+  evidence_data:
   caddy_data:
   caddy_config:
+  prometheus_data:
+  grafana_data:

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -33,6 +33,16 @@ class Usuario(Base):
     rol_id: Mapped[int] = mapped_column(ForeignKey("roles.id"))
     persona: Mapped[Persona] = relationship(back_populates="usuario")
     rol: Mapped[Rol] = relationship(back_populates="usuarios")
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(cascade="all, delete-orphan")
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    jti_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id", ondelete="CASCADE"), index=True)
+    expira_en: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revocado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Edificio(Base):
@@ -57,6 +67,10 @@ class Activo(Base):
     numero_serie: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
     edificio_id: Mapped[int | None] = mapped_column(ForeignKey("edificios.id"), nullable=True)
     estatus_id: Mapped[int | None] = mapped_column(ForeignKey("estatus.id"), nullable=True)
+    ubicacion: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    garantia: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    foto_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -64,9 +78,16 @@ class Auditoria(Base):
     __tablename__ = "auditorias"
     id: Mapped[int] = mapped_column(primary_key=True)
     titulo: Mapped[str] = mapped_column(String(120))
-    estado: Mapped[str] = mapped_column(String(30), default="abierta")
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estado: Mapped[str] = mapped_column(String(30), default="programada", index=True)
     creada_por_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    responsable_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    fecha_programada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    iniciada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finalizada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_cancelacion: Mapped[str | None] = mapped_column(String(500), nullable=True)
     detalles: Mapped[list["DetalleAuditoria"]] = relationship(back_populates="auditoria", cascade="all, delete-orphan")
 
 
@@ -76,7 +97,27 @@ class DetalleAuditoria(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     auditoria_id: Mapped[int] = mapped_column(ForeignKey("auditorias.id"))
     activo_id: Mapped[int] = mapped_column(ForeignKey("activos.id"))
-    encontrado: Mapped[bool] = mapped_column(Boolean)
+    estado_revision: Mapped[str] = mapped_column(String(30), default="pendiente", index=True)
+    encontrado: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    estatus_anterior_id: Mapped[int | None] = mapped_column(ForeignKey("estatus.id"), nullable=True)
+    estatus_nuevo_id: Mapped[int | None] = mapped_column(ForeignKey("estatus.id"), nullable=True)
+    ubicacion_encontrada: Mapped[str | None] = mapped_column(String(180), nullable=True)
     observacion: Mapped[str | None] = mapped_column(Text, nullable=True)
-    registrado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    tipo_incidencia: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    revisado_por_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"), nullable=True)
+    registrado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     auditoria: Mapped[Auditoria] = relationship(back_populates="detalles")
+    evidencias: Mapped[list["Evidencia"]] = relationship(back_populates="detalle", cascade="all, delete-orphan")
+
+
+class Evidencia(Base):
+    __tablename__ = "evidencias"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    detalle_id: Mapped[int] = mapped_column(ForeignKey("detalle_auditoria.id", ondelete="CASCADE"), index=True)
+    nombre_archivo: Mapped[str] = mapped_column(String(255))
+    ruta: Mapped[str] = mapped_column(String(500))
+    tipo_mime: Mapped[str] = mapped_column(String(80))
+    tamano_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    detalle: Mapped[DetalleAuditoria] = relationship(back_populates="evidencias")

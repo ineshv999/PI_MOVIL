@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 
 from app.core.config import get_settings
-from app.routers import activos, auth, health
+from app.core.observability import SecurityAndMetricsMiddleware
+from app.routers import activos, auditorias, auth, catalogos, health, usuarios
 
 settings = get_settings()
 
@@ -20,10 +23,19 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+app.add_middleware(SecurityAndMetricsMiddleware)
 
 app.include_router(health.router, prefix=settings.api_v1_prefix)
 app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(activos.router, prefix=settings.api_v1_prefix)
+app.include_router(catalogos.router, prefix=settings.api_v1_prefix)
+app.include_router(usuarios.router, prefix=settings.api_v1_prefix)
+app.include_router(auditorias.router, prefix=settings.api_v1_prefix)
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics() -> Response:
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/", tags=["General"], summary="Mensaje de bienvenida")

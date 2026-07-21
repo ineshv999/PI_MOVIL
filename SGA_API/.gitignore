@@ -17,3 +17,6 @@ __pycache__/
 *.db
 
 pgadmin-data/
+uploads/
+.pytest_cache/
+test.db
