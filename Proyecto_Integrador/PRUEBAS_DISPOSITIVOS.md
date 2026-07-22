@@ -13,20 +13,20 @@ La computadora y los dispositivos deben estar en la misma red privada.
 
 Marcar cada caso en cada dispositivo y guardar una captura.
 
-- [ ] El encabezado respeta la barra de estado.
-- [ ] El teclado no cubre el campo activo ni los botones inferiores.
-- [ ] Inicio de sesion correcto e incorrecto.
-- [ ] Navegacion de administrador y auditor.
-- [ ] Registro de usuario con validaciones vacias, correo, edad y contrasena.
-- [ ] Registro de activo, fotografia opcional, folio y QR automaticos.
-- [ ] Consulta por folio `ACT-000001`.
-- [ ] Escaneo QR abre la ficha informativa del activo.
-- [ ] Creacion y edicion de auditoria con fecha, edificio y responsable.
-- [ ] Revision sin cambios y sin observaciones.
-- [ ] Revision con cambio, observacion y evidencia fotografica.
-- [ ] Cancelacion con motivo y confirmaciones de eliminacion.
-- [ ] Resultados, graficas y botones de regreso.
-- [ ] Descarga, impresion o comparticion del QR.
+- [X] El encabezado respeta la barra de estado.
+- [X] El teclado no cubre el campo activo ni los botones inferiores.
+- [X] Inicio de sesion correcto e incorrecto.
+- [X] Navegacion de administrador y auditor.
+- [X] Registro de usuario con validaciones vacias, correo, edad y contrasena.
+- [X] Registro de activo, fotografia opcional, folio y QR automaticos.
+- [X] Consulta por folio `ACT-000001`.
+- [X] Escaneo QR abre la ficha informativa del activo.
+- [X] Creacion y edicion de auditoria con fecha, edificio y responsable.
+- [X] Revision sin cambios y sin observaciones.
+- [X] Revision con cambio, observacion y evidencia fotografica.
+- [X] Cancelacion con motivo y confirmaciones de eliminacion.
+- [X] Resultados, graficas y botones de regreso.
+- [X] Descarga, impresion o comparticion del QR.
 
 ## Evidencia final
 

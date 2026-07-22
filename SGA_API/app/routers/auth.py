@@ -11,7 +11,7 @@ from app.core.security import (create_access_token, create_refresh_token, decode
                                encrypt_value, hash_password, hash_token_id, verify_password)
 from app.dependencies.auth import current_user
 from app.models import Persona, RefreshToken, Rol, Usuario
-from app.schemas.auth import LoginUsuario, RefreshSolicitud, RegistroUsuario, TokenRespuesta, UsuarioRespuesta
+from app.schemas.auth import LoginUsuario, RefreshSolicitud, RegistroUsuario, TokenRespuesta, UsuarioActualizar, UsuarioRespuesta
 
 router = APIRouter(prefix="/auth", tags=["Autenticacion"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -90,4 +90,21 @@ def logout(data: RefreshSolicitud, db: DbSession) -> None:
 
 @router.get("/me", response_model=UsuarioRespuesta)
 def me(user: Annotated[Usuario, Depends(current_user)]) -> UsuarioRespuesta:
+    return serialize_user(user)
+
+
+@router.patch("/me", response_model=UsuarioRespuesta)
+def update_me(data: UsuarioActualizar, db: DbSession,
+              user: Annotated[Usuario, Depends(current_user)]) -> UsuarioRespuesta:
+    values = data.model_dump(exclude_unset=True)
+    values.pop("username", None)
+    password = values.pop("password", None)
+    correo = values.pop("correo", None)
+    if correo:
+        duplicate = db.scalar(select(Persona).where(Persona.correo == str(correo).lower(), Persona.id != user.persona_id))
+        if duplicate: raise HTTPException(status_code=409, detail="El correo ya existe")
+        user.persona.correo = str(correo).lower()
+    if password: user.password_hash = hash_password(password)
+    for key, value in values.items(): setattr(user.persona, key, value)
+    db.commit(); db.refresh(user)
     return serialize_user(user)

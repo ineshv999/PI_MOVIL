@@ -3,6 +3,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,7 +12,7 @@ from app.core.security import encrypt_value, hash_password
 from app.dependencies.auth import require_admin
 from app.models import Auditoria, DetalleAuditoria, Persona, Rol, Usuario
 from app.routers.auth import serialize_user
-from app.schemas.auth import RegistroUsuario, UsuarioRespuesta
+from app.schemas.auth import RegistroUsuario, UsuarioActualizar, UsuarioRespuesta
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"], dependencies=[Depends(require_admin)])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -60,6 +61,41 @@ async def upload_profile_photo(user_id: int, db: DbSession, archivo: UploadFile 
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
     folder = Path("uploads/perfiles"); folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
     user.persona.foto_url = str(path); db.commit(); db.refresh(user); return serialize_user(user)
+
+
+@router.get("/{user_id}/foto")
+def get_profile_photo(user_id: int, db: DbSession) -> Response:
+    user = db.get(Usuario, user_id)
+    if not user or not user.persona.foto_url:
+        raise HTTPException(status_code=404, detail="El usuario no tiene fotografia")
+    path = Path(user.persona.foto_url)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="La fotografia no esta disponible")
+    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    return Response(path.read_bytes(), media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
+@router.patch("/{user_id}", response_model=UsuarioRespuesta)
+def update_user(user_id: int, data: UsuarioActualizar, db: DbSession) -> UsuarioRespuesta:
+    user = db.get(Usuario, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    values = data.model_dump(exclude_unset=True)
+    username = values.pop("username", None)
+    password = values.pop("password", None)
+    correo = values.pop("correo", None)
+    if username:
+        duplicate = db.scalar(select(Usuario).where(Usuario.username == username.lower(), Usuario.id != user.id))
+        if duplicate: raise HTTPException(status_code=409, detail="El nombre de usuario ya existe")
+        user.username = username.lower()
+    if correo:
+        duplicate = db.scalar(select(Persona).where(Persona.correo == str(correo).lower(), Persona.id != user.persona_id))
+        if duplicate: raise HTTPException(status_code=409, detail="El correo ya existe")
+        user.persona.correo = str(correo).lower()
+    if password: user.password_hash = hash_password(password)
+    for key, value in values.items(): setattr(user.persona, key, value)
+    db.commit(); db.refresh(user)
+    return serialize_user(user)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

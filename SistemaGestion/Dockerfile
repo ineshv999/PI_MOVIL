@@ -1,17 +1,13 @@
-# Dockerfile para el API Gateway
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Instalar dependencias
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Configurar variables de entorno
 ENV PYTHONUNBUFFERED=1
-ENV FLASK_ENV=production
-
-# Puerto expuesto para el gateway
 EXPOSE 5000
-
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "gateway:app"]
+COPY app.py api_client.py ./
+COPY templates ./templates
+COPY static ./static
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "app:app"]
