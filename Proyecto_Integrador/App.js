@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
@@ -18,17 +19,18 @@ import EditarAuditoriaScreen from './screens/EditarAuditoriaScreen';
 import AuditoriaEnCursoScreen from './screens/AuditoriaEnCursoScreen';
 import DetalleAuditoriaScreen from './screens/DetalleAuditoriaScreen';
 import RevisarActivoScreen from './screens/RevisarActivoScreen';
+import ConsultarActivoScreen from './screens/ConsultarActivoScreen';
 import ResultadosAuditoriaScreen from './screens/ResultadosAuditoriaScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  return <AuthProvider><AppNavigator /></AuthProvider>;
+  return <SafeAreaProvider><AuthProvider><AppNavigator /></AuthProvider></SafeAreaProvider>;
 }
 
 function AppNavigator() {
-  const { loading } = useAuth();
+  const { loading, isAdmin } = useAuth();
   if (loading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B0F0E' }}><ActivityIndicator size="large" color="#22C55E" /></View>;
   return (
     <NavigationContainer>
@@ -59,20 +61,20 @@ function AppNavigator() {
           component={EscanearScreen}
         />
 
-        <Stack.Screen
+        {isAdmin && <Stack.Screen
           name="RegistrarUsuario"
           component={RegistrarUsuarioScreen}
-        />
+        />}
 
         <Stack.Screen
           name="RegistrarActivo"
           component={RegistrarActivoScreen}
         />
 
-        <Stack.Screen
+        {isAdmin && <Stack.Screen
           name="GestionarUsuarios"
           component={GestionarUsuariosScreen}
-        />
+        />}
 
         <Stack.Screen
           name="InventarioGeneral"
@@ -107,6 +109,11 @@ function AppNavigator() {
         <Stack.Screen
           name="RevisarActivo"
           component={RevisarActivoScreen}
+        />
+
+        <Stack.Screen
+          name="ConsultarActivo"
+          component={ConsultarActivoScreen}
         />
 
         <Stack.Screen

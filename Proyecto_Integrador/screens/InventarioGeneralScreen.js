@@ -16,7 +16,6 @@ import {
   PageHeading,
   Card,
   SearchBar,
-  StatusBadge,
 } from '../components/ScreenUI';
 
 const assets = [
@@ -54,10 +53,10 @@ export default function InventarioGeneralScreen({ navigation }) {
   const [remoteAssets, setRemoteAssets] = useState([]);
   const load = useCallback(async () => {
     try {
-      const [data, buildings, statuses] = await Promise.all([endpoints.assets(), endpoints.buildings(), endpoints.statuses()]);
-      setRemoteAssets(data.map((item) => ({ ...item, folio: item.codigo_qr,
+      const [data, buildings] = await Promise.all([endpoints.assets(), endpoints.buildings()]);
+      setRemoteAssets(data.map((item) => ({ ...item,
         edificio: buildings.find((b) => b.id === item.edificio_id)?.nombre || 'Sin edificio',
-        estado: statuses.find((s) => s.id === item.estatus_id)?.nombre || 'Sin estado' })));
+      })));
     } catch (error) { Alert.alert('No fue posible cargar inventario', apiErrorMessage(error)); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -102,7 +101,6 @@ export default function InventarioGeneralScreen({ navigation }) {
                 <Text style={styles.name}>{asset.nombre}</Text>
                 <Text style={styles.folio}>{asset.folio}</Text>
               </View>
-              <StatusBadge status={asset.estado} />
             </View>
 
             <View style={styles.locationRow}>
@@ -117,13 +115,7 @@ export default function InventarioGeneralScreen({ navigation }) {
             <TouchableOpacity
               style={styles.viewButton}
               onPress={() =>
-                navigation.navigate('RevisarActivo', {
-                  activo: {
-                    ...asset,
-                    estadoAnterior: asset.estado,
-                  },
-                  readOnly: true,
-                })
+                navigation.navigate('ConsultarActivo', { activo: asset })
               }
             >
               <Text style={styles.viewText}>Consultar activo</Text>

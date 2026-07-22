@@ -58,6 +58,7 @@ export default function AuditoriasScreen({ navigation }) {
   const [audits, setAudits] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedToDelete, setSelectedToDelete] = useState(null);
+  const [selectedToStart, setSelectedToStart] = useState(null);
   const { isAdmin } = useAuth();
 
   const load = useCallback(async () => {
@@ -66,7 +67,7 @@ export default function AuditoriasScreen({ navigation }) {
       const data = await endpoints.audits();
       setAudits(data.map((item) => ({ ...item, nombre: item.titulo,
         fechaProgramada: item.fecha_programada?.slice(0, 10) || 'Sin fecha', creado: item.creada_en?.slice(0, 10),
-        responsable: `Usuario #${item.responsable_id}`, estado: labels[item.estado] || item.estado,
+        responsable: item.responsable_nombre, estado: labels[item.estado] || item.estado,
         avance: `${item.revisados}/${item.total_activos}` })));
     } catch (error) { Alert.alert('No fue posible cargar auditorias', apiErrorMessage(error)); }
   }, []);
@@ -123,7 +124,6 @@ export default function AuditoriasScreen({ navigation }) {
           <Card key={audit.id}>
             <View style={styles.topRow}>
               <View style={styles.titleBody}>
-                <Text style={styles.auditId}>ID {audit.id}</Text>
                 <Text style={styles.auditName}>{audit.nombre}</Text>
               </View>
               <StatusBadge status={audit.estado} />
@@ -163,7 +163,7 @@ export default function AuditoriasScreen({ navigation }) {
                 <>
                   <TouchableOpacity
                     style={styles.startButton}
-                    onPress={() => openAudit(audit)}
+                    onPress={() => audit.estado === 'Programada' ? setSelectedToStart(audit) : openAudit(audit)}
                   >
                     <Ionicons name="play" size={15} color="#FFFFFF" />
                     <Text style={styles.startText}>{audit.estado === 'Programada' ? 'Iniciar' : 'Continuar'}</Text>
@@ -209,6 +209,15 @@ export default function AuditoriasScreen({ navigation }) {
         )}
       </ScrollView>
 
+      <ConfirmModal
+        visible={!!selectedToStart}
+        title="Iniciar auditoría"
+        message={`La auditoría será realizada por ${selectedToStart?.responsable || ''}. Al iniciar podrá comenzar la revisión de los activos asignados.`}
+        confirmText="Iniciar auditoría"
+        confirmIcon="play-outline"
+        onConfirm={async () => { const selected = selectedToStart; setSelectedToStart(null); await openAudit(selected); }}
+        onCancel={() => setSelectedToStart(null)}
+      />
       <ConfirmModal
         visible={!!selectedToDelete}
         title="Confirmar eliminación"

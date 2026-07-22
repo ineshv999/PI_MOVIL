@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -45,14 +46,14 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar
         barStyle="light-content"
         backgroundColor="#0B0F0E"
       />
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" showsVerticalScrollIndicator={false}>
         <View style={styles.logoContainer}>
           <View style={styles.logo}>
             <Ionicons
@@ -164,7 +165,7 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.footer}>
           Universidad Politécnica de Querétaro
         </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 22,
     paddingVertical: 35,
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
   },
 
   alertText: {
-    flex: 1,
+    flexGrow: 1,
     color: '#D9362B',
     fontSize: 13,
     lineHeight: 18,

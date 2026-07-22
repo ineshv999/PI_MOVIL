@@ -14,13 +14,14 @@ export default function EscanearScreen({ navigation, route }) {
 
   const findAsset = async (code) => {
     if (!code?.trim() || locked) return;
-    try { setLocked(true); setAsset(await endpoints.assetByQr(code.trim())); }
+    try { setLocked(true); const value = code.trim(); const folio = value.match(/^ACT-(\d+)$/i);
+      setAsset(folio ? await endpoints.asset(Number(folio[1])) : await endpoints.assetByQr(value)); }
     catch (error) { Alert.alert('Activo no encontrado', apiErrorMessage(error)); setLocked(false); }
   };
 
   const reset = () => { setAsset(null); setManualCode(''); setLocked(false); };
   const review = () => {
-    navigation.navigate('RevisarActivo', { activo: { ...asset, folio: asset.codigo_qr }, auditoriaId: auditId, readOnly: !auditId });
+    navigation.navigate('ConsultarActivo', { activo: asset });
   };
 
   return <AppShell navigation={navigation} title="Escanear activo" activeRoute="Escanear">
@@ -34,15 +35,15 @@ export default function EscanearScreen({ navigation, route }) {
           onBarcodeScanned={locked ? undefined : ({ data }) => findAsset(data)} /> : null}
 
         {!asset && <>
-          <FormField label="CODIGO QR MANUAL" value={manualCode} onChangeText={setManualCode}
-            placeholder="Ej. SGA-ACTIVO-001" icon="qr-code-outline" />
+          <FormField label="FOLIO MANUAL" value={manualCode} onChangeText={setManualCode}
+            placeholder="Ej. ACT-000001" icon="search-outline" />
           <PrimaryButton title="Buscar activo" icon="search-outline" onPress={() => findAsset(manualCode)} />
         </>}
 
         {asset && <View style={styles.result}>
           <Text style={styles.eyebrow}>ACTIVO ENCONTRADO</Text><Text style={styles.title}>{asset.nombre}</Text>
-          <Text style={styles.help}>{asset.codigo_qr} · {asset.ubicacion || 'Sin ubicacion'}</Text>
-          <PrimaryButton title={auditId ? 'Revisar activo' : 'Consultar activo'} icon="clipboard-outline" onPress={review} />
+          <Text style={styles.help}>{asset.folio} · {asset.ubicacion || 'Sin ubicacion'}</Text>
+          <PrimaryButton title="Consultar activo" icon="document-text-outline" onPress={review} />
           <SecondaryButton title="Escanear otro codigo" icon="refresh-outline" onPress={reset} />
         </View>}
       </Card>

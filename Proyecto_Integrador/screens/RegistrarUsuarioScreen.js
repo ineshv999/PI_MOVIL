@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AppShell from '../components/AppShell';
@@ -8,7 +8,7 @@ import { apiErrorMessage, endpoints } from '../services/api';
 
 const empty = { nombre: '', puesto: '', edad: '', domicilio: '', correo: '', password: '', confirm: '', rol: '' };
 export default function RegistrarUsuarioScreen({ navigation }) {
-  const [form, setForm] = useState(empty); const [errors, setErrors] = useState({}); const [photo, setPhoto] = useState(null); const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(empty); const [errors, setErrors] = useState({}); const [photo, setPhoto] = useState(null); const [saving, setSaving] = useState(false); const [createdUser, setCreatedUser] = useState(null);
   const change = (key, value) => { setForm((f) => ({ ...f, [key]: value })); setErrors((e) => ({ ...e, [key]: null, general: null })); };
   const validate = () => {
     const e = {}; const parts = form.nombre.trim().split(/\s+/);
@@ -30,7 +30,7 @@ export default function RegistrarUsuarioScreen({ navigation }) {
     const user = await endpoints.createUser({ username, password: form.password, nombres: first, apellidos: parts.join(' '), correo: form.correo.trim(), telefono: null,
       puesto: form.puesto.trim(), edad: +form.edad, domicilio: form.domicilio.trim() }, form.rol);
     if (photo) await endpoints.uploadUserPhoto(user.id, await makeFormData(photo));
-    Alert.alert('Registro exitoso', `Usuario @${username} creado correctamente.`, [{ text: 'Aceptar', onPress: () => { setForm(empty); setPhoto(null); navigation.goBack(); } }]);
+    setCreatedUser(user);
   } catch (error) { setErrors({ general: apiErrorMessage(error) }); } finally { setSaving(false); } };
   return <AppShell navigation={navigation} title="Registrar usuario" activeRoute="RegistrarUsuario"><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <PageHeading eyebrow="// ALTA DE USUARIOS" title="Registrar colaborador" subtitle="Datos personales, acceso y permisos del sistema." />
@@ -46,7 +46,11 @@ export default function RegistrarUsuarioScreen({ navigation }) {
       <View style={styles.row}><Field box secure label="CONTRASENA *" value={form.password} onChange={(v) => change('password', v)} error={errors.password} placeholder="Min. 8 caracteres" />
         <Field box secure label="CONFIRMAR CONTRASENA *" value={form.confirm} onChange={(v) => change('confirm', v)} error={errors.confirm} placeholder="Repetir" /></View>
       <PrimaryButton title={saving ? 'Registrando...' : 'Registrar usuario'} icon="person-add-outline" onPress={save} disabled={saving} /></Card>
-  </ScrollView></AppShell>;
+  </ScrollView><Modal visible={!!createdUser} transparent animationType="fade"><View style={styles.overlay}><View style={styles.successModal}>
+    <View style={styles.successCircle}><Ionicons name="checkmark-circle-outline" size={42} color={colors.accentDark} /></View><Text style={styles.successTag}>REGISTRO EXITOSO</Text>
+    <Text style={styles.successTitle}>¡Usuario registrado!</Text><Text style={styles.successText}><Text style={styles.bold}>{createdUser?.nombres} {createdUser?.apellidos}</Text> fue registrado como {createdUser?.rol === 'administrador' ? 'Administrador' : 'Auditor'} y ya puede iniciar sesión.</Text>
+    <PrimaryButton title="Aceptar" icon="checkmark-outline" onPress={() => { setCreatedUser(null); setForm(empty); setPhoto(null); navigation.goBack(); }} />
+  </View></View></Modal></AppShell>;
 }
 function Field({ label, value, onChange, error, placeholder, keyboardType, secure, box }) { return <View style={[styles.field, box && styles.half]}><Text style={styles.fieldLabel}>{label}</Text><TextInput style={[styles.input, error && styles.invalid]} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.placeholder} keyboardType={keyboardType} secureTextEntry={secure} autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'} />{error && <Text style={styles.error}>{error}</Text>}</View>; }
 function ErrorBanner({ text }) { return <View style={styles.banner}><Ionicons name="alert-circle" size={19} color={colors.danger} /><Text style={styles.bannerText}>{text}</Text></View>; }
@@ -55,4 +59,6 @@ const styles = StyleSheet.create({ content: { padding: 20, paddingBottom: 45 }, 
   row: { flexDirection: 'row', gap: 10 }, field: { marginBottom: 15 }, half: { flex: 1 }, fieldLabel: { color: colors.textSecondary, fontSize: 10, fontWeight: '800', letterSpacing: .6, marginBottom: 7 },
   input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 9, backgroundColor: colors.background, color: colors.textPrimary, paddingHorizontal: 12 }, invalid: { borderColor: colors.danger }, error: { color: colors.danger, fontSize: 10, fontWeight: '700', marginTop: 5 },
   roles: { flexDirection: 'row', gap: 9, marginBottom: 3 }, role: { flex: 1, padding: 13, borderWidth: 1, borderColor: colors.border, borderRadius: 9, alignItems: 'center' }, roleActive: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  banner: { flexDirection: 'row', gap: 9, padding: 13, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: '#F3C6C6', borderRadius: 9, marginBottom: 15 }, bannerText: { flex: 1, color: colors.danger, fontWeight: '700', fontSize: 12 } });
+  banner: { flexDirection: 'row', gap: 9, padding: 13, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: '#F3C6C6', borderRadius: 9, marginBottom: 15 }, bannerText: { flex: 1, color: colors.danger, fontWeight: '700', fontSize: 12 },
+  overlay: { flex: 1, backgroundColor: 'rgba(8,15,13,.7)', alignItems: 'center', justifyContent: 'center', padding: 18 }, successModal: { width: '100%', maxWidth: 450, backgroundColor: '#fff', borderRadius: 22, borderTopWidth: 4, borderTopColor: colors.accent, padding: 25, alignItems: 'center' },
+  successCircle: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }, successTag: { color: colors.accentDark, fontSize: 10, fontWeight: '900' }, successTitle: { color: colors.textPrimary, fontSize: 24, fontWeight: '900', marginTop: 8 }, successText: { color: colors.textSecondary, textAlign: 'center', lineHeight: 21, marginVertical: 16 }, bold: { color: colors.textPrimary, fontWeight: '800' } });

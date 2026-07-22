@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -10,14 +10,26 @@ class AuditoriaCrear(BaseModel):
     titulo: str = Field(min_length=3, max_length=120)
     descripcion: str | None = Field(default=None, max_length=2000)
     responsable_id: int = Field(gt=0)
+    edificio_id: int = Field(gt=0)
+    ubicacion_detalle: str | None = Field(default=None, max_length=180)
     fecha_programada: datetime | None = None
     activo_ids: list[int] = Field(default_factory=list, max_length=5000)
+
+    @model_validator(mode="after")
+    def fecha_no_pasada(self) -> "AuditoriaCrear":
+        if self.fecha_programada:
+            value = self.fecha_programada if self.fecha_programada.tzinfo else self.fecha_programada.replace(tzinfo=UTC)
+            if value.date() < datetime.now(UTC).date():
+                raise ValueError("La fecha programada no puede ser anterior al dia actual")
+        return self
 
 
 class AuditoriaActualizar(BaseModel):
     titulo: str | None = Field(default=None, min_length=3, max_length=120)
     descripcion: str | None = Field(default=None, max_length=2000)
     responsable_id: int | None = Field(default=None, gt=0)
+    edificio_id: int | None = Field(default=None, gt=0)
+    ubicacion_detalle: str | None = Field(default=None, max_length=180)
     fecha_programada: datetime | None = None
 
 
@@ -33,12 +45,12 @@ class RevisionActivo(BaseModel):
     encontrado: bool
     estatus_nuevo_id: int = Field(gt=0)
     ubicacion_encontrada: str = Field(min_length=2, max_length=180)
-    observacion: str = Field(min_length=3, max_length=2000)
+    observacion: str | None = Field(default=None, max_length=2000)
     tipo_incidencia: str | None = Field(default=None, max_length=60)
 
     @model_validator(mode="after")
     def incidencia_requiere_observacion(self) -> "RevisionActivo":
-        if self.tipo_incidencia and len(self.observacion.strip()) < 5:
+        if self.tipo_incidencia and len((self.observacion or "").strip()) < 5:
             raise ValueError("Una incidencia requiere una observacion descriptiva")
         return self
 
@@ -76,6 +88,9 @@ class AuditoriaRespuesta(BaseModel):
     estado: EstadoAuditoria
     creada_por_id: int
     responsable_id: int
+    responsable_nombre: str
+    edificio_id: int | None
+    ubicacion_detalle: str | None
     fecha_programada: datetime | None
     creada_en: datetime
     iniciada_en: datetime | None

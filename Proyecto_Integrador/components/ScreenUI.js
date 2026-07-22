@@ -255,6 +255,7 @@ export function FormField({
   keyboardType = 'default',
   secureTextEntry = false,
   editable = true,
+  error,
 }) {
   return (
     <View style={styles.fieldBlock}>
@@ -267,6 +268,7 @@ export function FormField({
           styles.inputContainer,
           multiline && styles.inputContainerMultiline,
           !editable && styles.inputContainerDisabled,
+          error && { borderColor: colors.danger },
         ]}
       >
         {icon ? (
@@ -302,6 +304,7 @@ export function FormField({
           editable={editable}
         />
       </View>
+      {error ? <Text style={{ color: colors.danger, fontSize: 10, fontWeight: '800', marginTop: 5 }}>{error}</Text> : null}
     </View>
   );
 }

@@ -1,114 +1,31 @@
-import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AppShell from '../components/AppShell';
-import {
-  PageHeading,
-  Card,
-  FormField,
-  PrimaryButton,
-  SecondaryButton,
-} from '../components/ScreenUI';
+import { Card, colors, PageHeading, PrimaryButton, SecondaryButton } from '../components/ScreenUI';
 import { apiErrorMessage, endpoints } from '../services/api';
 
 export default function EditarAuditoriaScreen({ navigation, route }) {
-  const auditoria = route.params?.auditoria || {
-    id: 7,
-    nombre: 'Auditoría de Control #7',
-    descripcion: 'Revisión de inventario general de activos fijos.',
-    fechaProgramada: '2026-06-18',
-    responsable: 'Eduardo',
-  };
-
-  const [nombre, setNombre] = useState(auditoria.nombre);
-  const [descripcion, setDescripcion] = useState(auditoria.descripcion);
-  const [fecha, setFecha] = useState(auditoria.fechaProgramada);
-  const [responsable, setResponsable] = useState(auditoria.responsable);
-
-  const save = async () => {
-    if (!nombre.trim()) {
-      Alert.alert('Nombre obligatorio', 'La auditoría debe tener un nombre.');
-      return;
-    }
-
-    try {
-      const extractedId = Number(String(responsable).match(/\d+/)?.[0] || auditoria.responsable_id);
-      await endpoints.updateAudit(auditoria.id, { titulo: nombre.trim(), descripcion: descripcion.trim() || null,
-        fecha_programada: fecha ? `${fecha}T09:00:00-06:00` : null, ...(extractedId ? { responsable_id: extractedId } : {}) });
-    } catch (error) { Alert.alert('No fue posible actualizar', apiErrorMessage(error)); return; }
-    Alert.alert(
-      'Cambios guardados',
-      'La información de la auditoría fue actualizada.',
-      [{ text: 'Aceptar', onPress: () => navigation.goBack() }]
-    );
-  };
-
-  return (
-    <AppShell
-      navigation={navigation}
-      title="Editar auditoría"
-      activeRoute="Auditorias"
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <PageHeading
-          eyebrow="// EDICIÓN"
-          title="Editar auditoría"
-          subtitle={`Modifica los datos de la auditoría #${auditoria.id}.`}
-        />
-
-        <Card>
-          <FormField
-            label="NOMBRE DE LA AUDITORÍA *"
-            value={nombre}
-            onChangeText={setNombre}
-            placeholder="Nombre"
-            icon="create-outline"
-          />
-          <FormField
-            label="DESCRIPCIÓN"
-            value={descripcion}
-            onChangeText={setDescripcion}
-            placeholder="Descripción"
-            icon="document-text-outline"
-            multiline
-          />
-          <FormField
-            label="FECHA PROGRAMADA"
-            value={fecha}
-            onChangeText={setFecha}
-            placeholder="AAAA-MM-DD"
-            icon="calendar-outline"
-          />
-          <FormField
-            label="RESPONSABLE"
-            value={responsable}
-            onChangeText={setResponsable}
-            placeholder="Responsable"
-            icon="person-outline"
-          />
-
-          <PrimaryButton
-            title="Guardar cambios"
-            icon="save-outline"
-            onPress={save}
-          />
-          <SecondaryButton
-            title="Cancelar"
-            icon="close-outline"
-            onPress={() => navigation.goBack()}
-          />
-        </Card>
-      </ScrollView>
-    </AppShell>
-  );
+  const audit = route.params?.auditoria; const [form, setForm] = useState({ titulo: audit?.nombre || '', descripcion: audit?.descripcion || '', fecha: audit?.fechaProgramada || '', responsableId: String(audit?.responsable_id || ''), edificioId: String(audit?.edificio_id || ''), detalle: audit?.ubicacion_detalle || '' });
+  const [users, setUsers] = useState([]); const [buildings, setBuildings] = useState([]); const [errors, setErrors] = useState({}); const [saving, setSaving] = useState(false); const [saved, setSaved] = useState(false);
+  useEffect(() => { Promise.all([endpoints.users(), endpoints.buildings()]).then(([u, b]) => { setUsers(u.filter((x) => x.activo)); setBuildings(b); }).catch((e) => setErrors({ general: apiErrorMessage(e) })); }, []);
+  const change = (key, value) => { setForm((f) => ({ ...f, [key]: value })); setErrors((e) => ({ ...e, [key]: null, general: null })); };
+  const validate = () => { const e = {}; if (form.titulo.trim().length < 3) e.titulo = 'El nombre debe tener al menos 3 caracteres'; if (form.descripcion.trim().length < 5) e.descripcion = 'La descripción es requerida';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.fecha)) e.fecha = 'Escribe una fecha válida en formato AAAA-MM-DD'; else { const d = new Date(`${form.fecha}T00:00:00`); const now = new Date(); now.setHours(0,0,0,0); if (d < now) e.fecha = 'La fecha no puede ser anterior al día actual'; }
+    if (!form.responsableId) e.responsableId = 'Selecciona un responsable'; if (!form.edificioId) e.edificioId = 'Selecciona un edificio'; setErrors(e); return !Object.keys(e).length; };
+  const save = async () => { if (!validate()) return; try { setSaving(true); await endpoints.updateAudit(audit.id, { titulo: form.titulo.trim(), descripcion: form.descripcion.trim(), fecha_programada: `${form.fecha}T09:00:00-06:00`, responsable_id: +form.responsableId, edificio_id: +form.edificioId, ubicacion_detalle: form.detalle.trim() || null }); setSaved(true); }
+    catch (error) { setErrors({ general: apiErrorMessage(error) }); } finally { setSaving(false); } };
+  return <AppShell navigation={navigation} title="Editar auditoría" activeRoute="Auditorias"><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <PageHeading eyebrow="// EDICIÓN" title="Editar auditoría" subtitle="Modifica los datos y valida la información antes de guardar." />
+    {errors.general && <View style={styles.banner}><Ionicons name="alert-circle" size={19} color={colors.danger} /><Text style={styles.bannerText}>{errors.general}</Text></View>}
+    <Card><Field label="NOMBRE DE LA AUDITORÍA *" value={form.titulo} onChange={(v) => change('titulo', v)} error={errors.titulo} /><Field label="DESCRIPCIÓN *" value={form.descripcion} onChange={(v) => change('descripcion', v)} error={errors.descripcion} multiline />
+      <Field label="FECHA PROGRAMADA *" value={form.fecha} onChange={(v) => change('fecha', v)} error={errors.fecha} placeholder="AAAA-MM-DD" />
+      <Choice label="RESPONSABLE *" value={form.responsableId} onChange={(v) => change('responsableId', v)} error={errors.responsableId} items={users.map((u) => [String(u.id), `${u.nombres} ${u.apellidos} · ${u.rol === 'administrador' ? 'Administrador' : 'Auditor'}`])} />
+      <Choice label="EDIFICIO *" value={form.edificioId} onChange={(v) => change('edificioId', v)} error={errors.edificioId} items={buildings.map((b) => [String(b.id), b.nombre])} />
+      <Field label="DETALLE DE UBICACIÓN (OPCIONAL)" value={form.detalle} onChange={(v) => change('detalle', v)} />
+      <PrimaryButton title={saving ? 'Guardando...' : 'Guardar cambios'} icon="save-outline" onPress={save} disabled={saving} /><SecondaryButton title="Cancelar" icon="close-outline" onPress={() => navigation.goBack()} /></Card>
+  </ScrollView><Modal visible={saved} transparent animationType="fade"><View style={styles.overlay}><View style={styles.modal}><Ionicons name="checkmark-circle" size={65} color={colors.accent} /><Text style={styles.modalTitle}>¡Cambios guardados!</Text><Text style={styles.modalText}>La auditoría fue actualizada correctamente.</Text><PrimaryButton title="Aceptar" icon="checkmark-outline" onPress={() => navigation.goBack()} /></View></View></Modal></AppShell>;
 }
-
-const styles = StyleSheet.create({
-  content: {
-    padding: 20,
-    paddingBottom: 42,
-  },
-});
+function Field({ label, value, onChange, error, placeholder, multiline }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput style={[styles.input, multiline && styles.area, error && styles.invalid]} value={value} onChangeText={onChange} placeholder={placeholder} multiline={multiline} />{error && <Text style={styles.error}>{error}</Text>}</View>; }
+function Choice({ label, value, onChange, error, items }) { const [open,setOpen]=useState(false); const selected=items.find(([id])=>id===value); return <View style={styles.field}><Text style={styles.label}>{label}</Text><TouchableOpacity style={[styles.input,styles.choice,error&&styles.invalid]} onPress={()=>setOpen(!open)}><Text style={{flex:1}}>{selected?.[1]||'Seleccionar'}</Text><Ionicons name="chevron-down" size={18}/></TouchableOpacity>{open&&<View style={styles.options}>{items.map(([id,name])=><TouchableOpacity key={id} style={styles.option} onPress={()=>{onChange(id);setOpen(false);}}><Text>{name}</Text></TouchableOpacity>)}</View>}{error&&<Text style={styles.error}>{error}</Text>}</View>; }
+const styles=StyleSheet.create({content:{padding:20,paddingBottom:45},field:{marginBottom:15},label:{color:colors.textSecondary,fontSize:10,fontWeight:'900',marginBottom:7},input:{minHeight:48,borderWidth:1,borderColor:colors.border,borderRadius:9,backgroundColor:colors.background,paddingHorizontal:12,color:colors.textPrimary},area:{height:110,paddingTop:12,textAlignVertical:'top'},invalid:{borderColor:colors.danger},error:{color:colors.danger,fontSize:10,fontWeight:'800',marginTop:5},choice:{flexDirection:'row',alignItems:'center'},options:{borderWidth:1,borderColor:colors.border,borderRadius:9,overflow:'hidden'},option:{padding:13,borderBottomWidth:1,borderBottomColor:colors.border},banner:{flexDirection:'row',gap:8,padding:13,backgroundColor:colors.dangerSoft,borderRadius:9,marginBottom:14},bannerText:{color:colors.danger,flex:1},overlay:{flex:1,backgroundColor:'rgba(8,15,13,.7)',alignItems:'center',justifyContent:'center',padding:20},modal:{width:'100%',maxWidth:430,backgroundColor:'#fff',borderRadius:22,padding:25,alignItems:'center'},modalTitle:{fontSize:23,fontWeight:'900',marginTop:10},modalText:{color:colors.textSecondary,marginVertical:15}});

@@ -86,6 +86,8 @@ class Auditoria(Base):
     estado: Mapped[str] = mapped_column(String(30), default="programada", index=True)
     creada_por_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
     responsable_id: Mapped[int] = mapped_column(ForeignKey("usuarios.id"))
+    edificio_id: Mapped[int | None] = mapped_column(ForeignKey("edificios.id"), nullable=True)
+    ubicacion_detalle: Mapped[str | None] = mapped_column(String(180), nullable=True)
     fecha_programada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     creada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     iniciada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

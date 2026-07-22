@@ -96,6 +96,17 @@ def download_qr(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(curr
     return Response(output.getvalue(), media_type="image/png", headers={"Content-Disposition": f'attachment; filename="{asset_response(asset)["folio"]}-QR.png"'})
 
 
+@router.get("/{asset_id}/foto", summary="Consulta la fotografia del activo")
+def get_asset_photo(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(current_user)]) -> Response:
+    asset = db.get(Activo, asset_id)
+    if not asset: raise HTTPException(status_code=404, detail="Activo no encontrado")
+    if not asset.foto_url: raise HTTPException(status_code=404, detail="El activo no tiene fotografia")
+    path = Path(asset.foto_url)
+    if not path.is_file(): raise HTTPException(status_code=404, detail="La fotografia no esta disponible")
+    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    return Response(path.read_bytes(), media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
 @router.post("/{asset_id}/foto", response_model=ActivoRespuesta)
 async def upload_asset_photo(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(require_admin)], archivo: UploadFile = File()) -> dict:
     asset = db.get(Activo, asset_id)

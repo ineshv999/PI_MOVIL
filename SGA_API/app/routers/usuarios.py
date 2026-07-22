@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import encrypt_value, hash_password
 from app.dependencies.auth import require_admin
-from app.models import Persona, Rol, Usuario
+from app.models import Auditoria, DetalleAuditoria, Persona, Rol, Usuario
 from app.routers.auth import serialize_user
 from app.schemas.auth import RegistroUsuario, UsuarioRespuesta
 
@@ -39,10 +39,13 @@ def create_user(data: RegistroUsuario, db: DbSession, rol: str = "usuario") -> U
 
 
 @router.patch("/{user_id}/activo", response_model=UsuarioRespuesta)
-def toggle_user(user_id: int, activo: bool, db: DbSession) -> UsuarioRespuesta:
+def toggle_user(user_id: int, activo: bool, db: DbSession,
+                admin: Annotated[Usuario, Depends(require_admin)]) -> UsuarioRespuesta:
     user = db.get(Usuario, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if user.id == admin.id and not activo:
+        raise HTTPException(status_code=409, detail="No puedes eliminar ni desactivar la cuenta con la que iniciaste sesion")
     user.activo = activo; db.commit(); db.refresh(user)
     return serialize_user(user)
 
@@ -57,3 +60,17 @@ async def upload_profile_photo(user_id: int, db: DbSession, archivo: UploadFile 
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
     folder = Path("uploads/perfiles"); folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
     user.persona.foto_url = str(path); db.commit(); db.refresh(user); return serialize_user(user)
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, db: DbSession,
+                admin: Annotated[Usuario, Depends(require_admin)]) -> None:
+    user = db.get(Usuario, user_id)
+    if not user: raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if user.id == admin.id: raise HTTPException(status_code=409, detail="No puedes eliminar la cuenta con la que iniciaste sesion")
+    has_audits = db.scalar(select(Auditoria.id).where((Auditoria.creada_por_id == user.id) | (Auditoria.responsable_id == user.id)).limit(1))
+    has_reviews = db.scalar(select(DetalleAuditoria.id).where(DetalleAuditoria.revisado_por_id == user.id).limit(1))
+    if has_audits or has_reviews:
+        raise HTTPException(status_code=409, detail="No se puede eliminar definitivamente: el usuario tiene auditorias o revisiones historicas asociadas")
+    person = user.persona
+    db.delete(user); db.flush(); db.delete(person); db.commit()

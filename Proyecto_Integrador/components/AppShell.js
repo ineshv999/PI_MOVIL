@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { KeyboardAvoidingView, Platform, StatusBar, Text, TouchableOpacity, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
@@ -35,7 +36,8 @@ export default function AppShell({
     .toUpperCase();
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.headerBg} translucent={false} />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => setSidebarVisible(true)}
@@ -49,7 +51,7 @@ export default function AppShell({
         </View>
       </View>
 
-      <View style={styles.content}>{children}</View>
+      <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>{children}</KeyboardAvoidingView>
 
       <Sidebar
         visible={sidebarVisible}
@@ -60,7 +62,7 @@ export default function AppShell({
         userRole={userRole}
         onLogout={async () => { await logout(); navigation?.reset({ index: 0, routes: [{ name: 'Login' }] }); }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -72,7 +74,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.headerBg,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 54 : 18,
+    paddingTop: 10,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

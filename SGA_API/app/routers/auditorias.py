@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.dependencies.auth import current_user, require_admin
-from app.models import Activo, Auditoria, DetalleAuditoria, Estatus, Evidencia, Usuario
+from app.models import Activo, Auditoria, DetalleAuditoria, Edificio, Estatus, Evidencia, Usuario
 from app.schemas.auditorias import (AsignarActivos, AuditoriaActualizar, AuditoriaCrear, AuditoriaRespuesta,
                                     CancelarAuditoria, DetalleRespuesta, EvidenciaRespuesta, ResultadoAuditoria,
                                     RevisionActivo)
@@ -37,11 +37,14 @@ def get_audit(audit_id: int, db: Session, with_details: bool = False) -> Auditor
     return audit
 
 
-def response(audit: Auditoria) -> AuditoriaRespuesta:
+def response(audit: Auditoria, db: Session) -> AuditoriaRespuesta:
     reviewed = sum(d.estado_revision == "revisado" for d in audit.detalles)
     incidents = sum(bool(d.tipo_incidencia) for d in audit.detalles)
+    responsible = db.get(Usuario, audit.responsable_id)
+    responsible_name = f"{responsible.persona.nombres} {responsible.persona.apellidos}" if responsible else "Usuario no disponible"
     return AuditoriaRespuesta.model_validate({
         **{c.name: getattr(audit, c.name) for c in audit.__table__.columns},
+        "responsable_nombre": responsible_name,
         "total_activos": len(audit.detalles), "revisados": reviewed,
         "pendientes": len(audit.detalles) - reviewed, "incidencias": incidents,
     })
@@ -66,23 +69,27 @@ def list_audits(db: DbSession, user: Annotated[Usuario, Depends(current_user)], 
     if estado: query = query.where(Auditoria.estado == estado)
     if buscar: query = query.where(or_(Auditoria.titulo.ilike(f"%{buscar.strip()}%"), Auditoria.descripcion.ilike(f"%{buscar.strip()}%")))
     audits = db.scalars(query.order_by(Auditoria.creada_en.desc()).offset(skip).limit(limit)).all()
-    return [response(a) for a in audits]
+    return [response(a, db) for a in audits]
 
 
 @router.post("", response_model=AuditoriaRespuesta, status_code=status.HTTP_201_CREATED)
 def create_audit(data: AuditoriaCrear, db: DbSession, admin: Annotated[Usuario, Depends(require_admin)]) -> AuditoriaRespuesta:
     responsible = db.get(Usuario, data.responsable_id)
     if not responsible or not responsible.activo: raise HTTPException(status_code=422, detail="Responsable no valido")
+    if not db.get(Edificio, data.edificio_id): raise HTTPException(status_code=422, detail="Edificio no valido")
+    building_asset_ids = list(db.scalars(select(Activo.id).where(Activo.edificio_id == data.edificio_id, Activo.activo.is_(True))).all())
+    if not building_asset_ids: raise HTTPException(status_code=422, detail="El edificio seleccionado no tiene activos disponibles")
     audit = Auditoria(titulo=data.titulo.strip(), descripcion=data.descripcion, responsable_id=data.responsable_id,
+                      edificio_id=data.edificio_id, ubicacion_detalle=data.ubicacion_detalle,
                       fecha_programada=data.fecha_programada, creada_por_id=admin.id)
-    db.add(audit); add_assets(audit, data.activo_ids, db); db.commit(); db.refresh(audit)
-    return response(audit)
+    db.add(audit); add_assets(audit, building_asset_ids, db); db.commit(); db.refresh(audit)
+    return response(audit, db)
 
 
 @router.get("/{audit_id}", response_model=ResultadoAuditoria)
 def audit_detail(audit_id: int, db: DbSession, user: Annotated[Usuario, Depends(current_user)]) -> ResultadoAuditoria:
     audit = get_audit(audit_id, db, True); authorized(audit, user)
-    summary = response(audit).model_dump()
+    summary = response(audit, db).model_dump()
     return ResultadoAuditoria(**summary, detalles=[DetalleRespuesta.model_validate(d) for d in audit.detalles])
 
 
@@ -93,7 +100,7 @@ def update_audit(audit_id: int, data: AuditoriaActualizar, db: DbSession,
     if audit.estado not in {"programada", "en_progreso"}: raise HTTPException(status_code=409, detail="El estado no permite editar")
     if data.responsable_id and not db.get(Usuario, data.responsable_id): raise HTTPException(status_code=422, detail="Responsable no valido")
     for key, value in data.model_dump(exclude_unset=True).items(): setattr(audit, key, value)
-    db.commit(); db.refresh(audit); return response(audit)
+    db.commit(); db.refresh(audit); return response(audit, db)
 
 
 @router.post("/{audit_id}/activos", response_model=AuditoriaRespuesta)
@@ -105,7 +112,7 @@ def assign_assets(audit_id: int, data: AsignarActivos, db: DbSession,
     try: db.commit()
     except IntegrityError as exc:
         db.rollback(); raise HTTPException(status_code=409, detail="Activo ya asignado") from exc
-    return response(audit)
+    return response(audit, db)
 
 
 @router.delete("/{audit_id}/activos/{asset_id}", status_code=204)
@@ -123,7 +130,7 @@ def start_audit(audit_id: int, db: DbSession, user: Annotated[Usuario, Depends(c
     audit = get_audit(audit_id, db, True); authorized(audit, user)
     if audit.estado != "programada": raise HTTPException(status_code=409, detail="La auditoria no esta programada")
     if not audit.detalles: raise HTTPException(status_code=409, detail="Asigne al menos un activo")
-    audit.estado = "en_progreso"; audit.iniciada_en = datetime.now(UTC); db.commit(); return response(audit)
+    audit.estado = "en_progreso"; audit.iniciada_en = datetime.now(UTC); db.commit(); return response(audit, db)
 
 
 @router.put("/{audit_id}/activos/{asset_id}/revision", response_model=DetalleRespuesta)
@@ -136,7 +143,7 @@ def review_asset(audit_id: int, asset_id: int, data: RevisionActivo, db: DbSessi
     if not db.get(Estatus, data.estatus_nuevo_id): raise HTTPException(status_code=422, detail="Estatus no valido")
     detail.estado_revision = "revisado"; detail.encontrado = data.encontrado
     detail.estatus_nuevo_id = data.estatus_nuevo_id; detail.ubicacion_encontrada = data.ubicacion_encontrada.strip()
-    detail.observacion = data.observacion.strip(); detail.tipo_incidencia = data.tipo_incidencia
+    detail.observacion = data.observacion.strip() if data.observacion else None; detail.tipo_incidencia = data.tipo_incidencia
     detail.revisado_por_id = user.id; detail.registrado_en = datetime.now(UTC)
     db.commit(); db.refresh(detail); return detail
 
@@ -179,7 +186,7 @@ def complete_audit(audit_id: int, db: DbSession, user: Annotated[Usuario, Depend
         elif detail.estatus_nuevo_id:
             asset = db.get(Activo, detail.activo_id); asset.estatus_id = detail.estatus_nuevo_id
             if detail.ubicacion_encontrada: asset.ubicacion = detail.ubicacion_encontrada
-    db.commit(); return response(audit)
+    db.commit(); return response(audit, db)
 
 
 @router.post("/{audit_id}/cancelar", response_model=AuditoriaRespuesta)
@@ -188,11 +195,10 @@ def cancel_audit(audit_id: int, data: CancelarAuditoria, db: DbSession,
     audit = get_audit(audit_id, db, True); authorized(audit, user)
     if audit.estado not in {"programada", "en_progreso"}: raise HTTPException(status_code=409, detail="La auditoria ya esta cerrada")
     audit.estado = "cancelada"; audit.cancelada_en = datetime.now(UTC); audit.motivo_cancelacion = data.motivo.strip()
-    db.commit(); return response(audit)
+    db.commit(); return response(audit, db)
 
 
 @router.delete("/{audit_id}", status_code=204)
 def delete_audit(audit_id: int, db: DbSession, admin: Annotated[Usuario, Depends(require_admin)]) -> None:
     audit = get_audit(audit_id, db)
-    if audit.estado == "en_progreso": raise HTTPException(status_code=409, detail="Cancele la auditoria antes de eliminarla")
     db.delete(audit); db.commit()
