@@ -17,6 +17,13 @@ class RegistroUsuario(BaseModel):
     def strip_text(cls, value: str) -> str:
         return value.strip()
 
+    @field_validator("password")
+    @classmethod
+    def strong_password(cls, value: str) -> str:
+        if not any(c.isupper() for c in value) or not any(c.islower() for c in value) or not any(c.isdigit() for c in value):
+            raise ValueError("La contrasena debe incluir mayuscula, minuscula y numero")
+        return value
+
 
 class LoginUsuario(BaseModel):
     username: str = Field(min_length=3, max_length=50)

@@ -32,6 +32,14 @@ class AuditoriaActualizar(BaseModel):
     ubicacion_detalle: str | None = Field(default=None, max_length=180)
     fecha_programada: datetime | None = None
 
+    @model_validator(mode="after")
+    def fecha_no_pasada(self) -> "AuditoriaActualizar":
+        if self.fecha_programada:
+            value = self.fecha_programada if self.fecha_programada.tzinfo else self.fecha_programada.replace(tzinfo=UTC)
+            if value.date() < datetime.now(UTC).date():
+                raise ValueError("La fecha programada no puede ser anterior al dia actual")
+        return self
+
 
 class CancelarAuditoria(BaseModel):
     motivo: str = Field(min_length=5, max_length=500)

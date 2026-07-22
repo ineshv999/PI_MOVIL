@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGAFAQ — Editar Perfil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="appPage" class="active">
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="s-brand">
+      <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+      <div class="s-brand-label">
+        <strong>SGAFAQ</strong>
+        Activos Fijos · QR
+      </div>
+    </div>
+
+    <div class="s-user active"
+        onmouseover="this.style.backgroundColor='rgba(255,255,255,0.05)'"
+        onmouseout="this.style.backgroundColor=''">
+        <div class="s-avatar" style="overflow: hidden; width: 34px; height: 34px; border-radius: 8px;">
+          {% if session.foto_perfil %}
+              <img src="/static/img_personas/{{ session.foto_perfil }}" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% else %}
+              <img src="/static/img_personas/default.png" 
+                  alt="Foto de perfil" 
+                  style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+          {% endif %}
+        </div>
+        <div class="s-user-info">
+            <div class="s-user-name">{{ session.nombre_completo }}</div>
+            <div class="s-user-role">// ADMIN</div>
+        </div>
+    </div>
+
+    <nav class="s-nav">
+      <div class="s-nav-section">// principal</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_admin') }}'" style="cursor: pointer;">
+        <i class="bi bi-grid-1x2-fill nav-icon"></i>Dashboard
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos') }}'" style="cursor: pointer;">
+        <i class="bi bi-clock-history nav-icon"></i> Historial de movimientos
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('escanear_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-qr-code-scan nav-icon"></i> Escanear activo
+      </div>
+      <div class="s-nav-section">// gestión</div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('crear_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-people-fill nav-icon"></i> Registrar usuario
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo') }}'" style="cursor: pointer;">
+        <i class="bi bi-plus-circle-fill nav-icon"></i> Registrar activo
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('editar_usuario') }}'" style="cursor: pointer;">
+        <i class="bi bi-pencil-fill nav-icon"></i> Gestionar usuarios
+      </div>
+      <div class="nav-item" onclick="window.location.href='{{ url_for('inventario_general') }}'" style="cursor: pointer;">
+        <i class="bi bi-table nav-icon"></i> Inventario general
+      </div>
+    </nav>
+
+    <div class="s-footer">
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">Mi Perfil</div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-bc">sistema / <span>Editar perfil</span></div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user"
+            onmouseover="this.style.backgroundColor='var(--smoke-2)'"
+            onmouseout="this.style.backgroundColor=''">
+            <div class="topbar-user-av" style="overflow: hidden; width: 26px; height: 26px; border-radius: 5px;">
+                {{ session.nombre_completo[:2]|upper }}
+            </div>
+            <span>{{ session.nombre_completo }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'error' if category == 'error' or category == 'danger' else 'info' }}" style="display:flex; margin-bottom:16px;">
+              <i class="bi bi-{{ 'check-circle-fill' if category == 'success' else 'exclamation-circle-fill' }}"></i>
+              {{ message }}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- PAGE HEADER -->
+      <div class="page-header">
+        <div class="ph-left">
+          <div class="ph-eyebrow">// cuenta de usuario</div>
+          <div class="ph-title">Editar Perfil</div>
+          <div class="ph-sub">Actualiza tu información personal y credenciales de acceso</div>
+        </div>
+      </div>
+
+      <!-- PROFILE FORM -->
+      <form method="POST" enctype="multipart/form-data" id="perfilForm" onsubmit="return validarPerfil()">
+        <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+
+        <div style="display:grid; grid-template-columns: 300px 1fr; gap:18px; align-items:start;">
+
+          <!-- LEFT: AVATAR CARD -->
+          <div class="card" style="text-align:center; padding:28px 20px;">
+            <div style="position:relative; display:inline-block; margin-bottom:16px;">
+              <div style="width:110px; height:110px; border-radius:50%; overflow:hidden; border:3px solid var(--g-border); margin:0 auto; box-shadow:0 4px 20px rgba(0,201,122,0.15); background:var(--smoke-2);">
+                <img id="fotoPreview"
+                     src="{{ url_for('static', filename='img_personas/' ~ usuario[6]) if usuario[6] else '' }}"
+                     onerror="this.style.display='none'; document.getElementById('fotoPlaceholder').style.display='flex';"
+                     onload="this.style.display='block'; document.getElementById('fotoPlaceholder').style.display='none';"
+                     alt="Foto de perfil"
+                     style="width:100%; height:100%; object-fit:cover; {{ 'display:block' if usuario[6] else 'display:none' }}">
+                <div id="fotoPlaceholder" style="width:100%; height:100%; display:{{ 'none' if usuario[6] else 'flex' }}; align-items:center; justify-content:center; background:linear-gradient(135deg,var(--g) 0%,var(--g-dark) 100%); font-size:36px; font-weight:700; color:var(--ink);">
+                  {{ usuario[1][:2]|upper if usuario[1] else 'U' }}
+                </div>
+              </div>
+              <label for="fotoInput" style="position:absolute; bottom:0; right:0; width:28px; height:28px; background:var(--g); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,201,122,0.4); transform:translate(4px, 4px);">
+                <i class="bi bi-camera-fill" style="font-size:13px; color:var(--ink);"></i>
+              </label>
+              <input type="file" name="foto" id="fotoInput" accept="image/*" style="display:none;">
+            </div>
+
+            <div style="font-size:18px; font-weight:700; color:var(--ink); letter-spacing:-0.4px; margin-bottom:2px;">{{ usuario[1] }}</div>
+            <div style="font-size:12px; color:rgba(8,13,11,0.45); margin-bottom:6px;">@{{ usuario[0] }}</div>
+            <span class="badge {{ 'b-blue' if usuario[2] and usuario[2].lower() == 'administrador' else 'b-teal' }}">
+              <i class="bi bi-{{ 'shield-fill' if usuario[2] and usuario[2].lower() == 'administrador' else 'person-fill' }}"></i>
+              {{ usuario[2] }}
+            </span>
+
+            <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--smoke-3); text-align:left;">
+              <div style="font-family:var(--font-mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase; color:var(--g-dark); font-weight:700; margin-bottom:10px;">// datos rápidos</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:rgba(8,13,11,0.6);">
+                  <i class="bi bi-briefcase-fill" style="color:var(--g-dark); width:14px;"></i>
+                  <span>{{ usuario[3] or 'Sin puesto' }}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:rgba(8,13,11,0.6);">
+                  <i class="bi bi-person-fill" style="color:var(--g-dark); width:14px;"></i>
+                  <span>{{ usuario[4] or '—' }} años</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:rgba(8,13,11,0.6);">
+                  <i class="bi bi-geo-alt-fill" style="color:var(--g-dark); width:14px;"></i>
+                  <span style="word-break:break-word;">{{ usuario[5] or 'Sin domicilio' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px; font-size:11px; color:rgba(8,13,11,0.35);">
+              Click en la cámara para cambiar foto<br>Formatos aceptados: JPG, PNG, WEBP
+            </div>
+          </div>
+
+          <!-- RIGHT: FORM CARDS -->
+          <div style="display:flex; flex-direction:column; gap:14px;">
+
+<!-- Información Personal -->
+<div class="card">
+  <div class="card-header" style="margin-bottom:14px;">
+    <div>
+      <div class="card-title"><i class="bi bi-person-lines-fill" style="color:var(--g-dark); margin-right:6px;"></i>Información Personal</div>
+      <div class="card-sub">Tus datos personales visibles en el sistema</div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label">Nombre Completo *</label>
+      <input class="form-input" type="text" name="nombre" id="inputNombre"
+             value="{{ usuario[1] }}" placeholder="Juan Pérez" required>
+      <div class="form-error" id="errNombre" style="display:none;"></div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label">Puesto / Cargo *</label>
+      <input class="form-input" type="text" name="puesto" id="inputPuesto"
+             value="{{ usuario[3] or '' }}" placeholder="Ej. Técnico de soporte" required>
+      <div class="form-error" id="errPuesto" style="display:none;"></div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label">Edad *</label>
+      <input class="form-input" type="number" name="edad" id="inputEdad" min="18" max="100"
+             value="{{ usuario[4] or '' }}" placeholder="25" required>
+      <div class="form-error" id="errEdad" style="display:none;"></div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label">Rol</label>
+      <input class="form-input" type="text" value="{{ usuario[2] or '' }}" disabled
+             style="background:var(--smoke); color:rgba(8,13,11,0.45); cursor:not-allowed;">
+    </div>
+  </div>
+
+  <div class="form-group" style="margin-top:14px; margin-bottom:0;">
+    <label class="form-label">Domicilio *</label>
+    <input class="form-input" type="text" name="domicilio" id="inputDomicilio"
+           value="{{ usuario[5] or '' }}" placeholder="Calle, colonia, ciudad..." required>
+    <div class="form-error" id="errDomicilio" style="display:none;"></div>
+  </div>
+</div>
+
+            <!-- Credenciales -->
+            <div class="card">
+              <div class="card-header" style="margin-bottom:14px;">
+                <div>
+                  <div class="card-title"><i class="bi bi-key-fill" style="color:var(--g-dark); margin-right:6px;"></i>Credenciales de Acceso</div>
+                  <div class="card-sub">Nombre de usuario y contraseña</div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label">Correo electrónico *</label>
+                <div style="position:relative;">
+                  <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:rgba(8,13,11,0.35); font-size:14px;">✉</span>
+                  <input class="form-input" type="email" 
+                        value="{{ usuario[0] }}" placeholder="usuario@ejemplo.com" required
+                        style="padding-left:28px; background:var(--smoke); cursor:not-allowed;" 
+                        disabled readonly>
+                </div>
+                <!-- Campo oculto para enviar el valor al servidor -->
+                <input type="hidden" name="user" value="{{ usuario[0] }}">
+                <div class="form-error" id="errUser" style="display:none;"></div>
+                <div class="form-hint">El correo electrónico no puede ser modificado</div>
+              </div>
+
+              <!-- NUEVA SECCIÓN: Cambiar contraseña -->
+              <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--smoke-3);">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                  <i class="bi bi-shield-lock-fill" style="color:var(--g-dark);"></i>
+                  <span style="font-weight:600; font-size:14px;">Cambiar contraseña</span>
+                  <span style="font-size:11px; color:rgba(8,13,11,0.45);">(dejar vacío para mantener la actual)</span>
+                </div>
+
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <!-- NUEVA CONTRASEÑA -->
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Nueva contraseña</label>
+                    <div style="position:relative;">
+                      <input class="form-input" type="password" name="password" id="inputPass" placeholder="Mín. 8 caracteres" style="padding-right:38px;">
+                      <button type="button" onclick="togglePass('inputPass','eyePass')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(8,13,11,0.4);font-size:15px;">
+                        <i class="bi bi-eye" id="eyePass"></i>
+                      </button>
+                    </div>
+                    <div class="form-error" id="errPass" style="display:none;"></div>
+                    <div class="form-hint">Mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula y 1 número</div>
+                  </div>
+                  
+                  <!-- CONFIRMAR CONTRASEÑA -->
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Confirmar contraseña</label>
+                    <div style="position:relative;">
+                      <input class="form-input" type="password" name="password2" id="inputPass2" placeholder="Repetir contraseña" style="padding-right:38px;">
+                      <button type="button" onclick="togglePass('inputPass2','eyePass2')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(8,13,11,0.4);font-size:15px;">
+                        <i class="bi bi-eye" id="eyePass2"></i>
+                      </button>
+                    </div>
+                    <div class="form-error" id="errPass2" style="display:none;"></div>
+                  </div>
+                </div>
+
+                   <!-- Barra de fortaleza de contraseña -->
+                <div style="margin-top:12px; max-width:300px;">
+                  <div style="height:4px; background:var(--smoke-3); border-radius:4px; overflow:hidden;">
+                    <div id="passBar" style="height:100%; width:0%; background:var(--red); border-radius:4px; transition:width .3s,background .3s;"></div>
+                  </div>
+                  <div id="passLabel" style="font-size:11px; color:rgba(8,13,11,0.4); margin-top:4px;"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Actions -->
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+              <a href="{{ url_for('dashboard_admin' if session.rol and session.rol.lower() == 'administrador' else 'dashboard_usuario') }}"
+                 class="btn btn-outline">
+                <i class="bi bi-x-lg"></i> Cancelar
+              </a>
+              <button type="submit" class="btn btn-green" id="btnGuardar">
+                <i class="bi bi-check2-circle"></i> Guardar Cambios
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </form>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+<script>
+// Preview de foto
+document.getElementById('fotoInput').addEventListener('change', function() {
+  const archivo = this.files[0];
+  if (archivo) {
+    if (archivo.size > 5 * 1024 * 1024) {
+      showToast('La imagen supera los 5 MB', 'error');
+      this.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const preview = document.getElementById('fotoPreview');
+      const placeholder = document.getElementById('fotoPlaceholder');
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      placeholder.style.display = 'none';
+    };
+    reader.readAsDataURL(archivo);
+  }
+});
+
+// Mostrar/ocultar contraseña
+function togglePass(inputId, iconId) {
+  const inp = document.getElementById(inputId);
+  const ico = document.getElementById(iconId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  ico.className = inp.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+// Medidor de fortaleza de contraseña
+const passInput = document.getElementById('inputPass');
+if (passInput) {
+  passInput.addEventListener('input', function() {
+    const v = this.value;
+    let s = 0;
+    if (v.length >= 6) s++;
+    if (v.length >= 10) s++;
+    if (/[A-Z]/.test(v)) s++;
+    if (/[a-z]/.test(v)) s++; 
+    if (/[0-9]/.test(v)) s++;
+    if (/[^A-Za-z0-9]/.test(v)) s++;
+    
+    const niveles = [
+      ['', 'var(--smoke-3)', '0%'],
+      ['Muy débil', 'var(--red)', '20%'],
+      ['Débil', '#e67e22', '40%'],
+      ['Regular', 'var(--amber)', '60%'],
+      ['Fuerte', '#27ae60', '80%'],
+      ['Muy fuerte', 'var(--g)', '100%']
+    ];
+    
+    const idx = v.length === 0 ? 0 : Math.min(s + 1, 5);
+    
+    document.getElementById('passBar').style.width = niveles[idx][2];
+    document.getElementById('passBar').style.background = niveles[idx][1];
+    document.getElementById('passLabel').textContent = niveles[idx][0];
+    document.getElementById('passLabel').style.color = niveles[idx][1];
+  });
+}
+
+// Función para mostrar error
+function showError(inputId, errorId, mensaje) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+  if (input) {
+    input.classList.add('error');
+    input.style.borderColor = 'var(--red)';
+  }
+  if (error) {
+    error.textContent = mensaje;
+    error.style.display = 'block';
+    error.style.color = 'var(--red)';
+  }
+}
+
+// Función para limpiar error
+function clearError(inputId, errorId) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+  if (input) {
+    input.classList.remove('error');
+    input.style.borderColor = '';
+  }
+  if (error) {
+    error.textContent = '';
+    error.style.display = 'none';
+  }
+}
+
+// Validación principal de TODOS los campos obligatorios
+function validarPerfil() {
+  let valido = true;
+
+  // 1. Validar NOMBRE (requerido)
+  const nombre = document.getElementById('inputNombre');
+  if (!nombre.value.trim()) {
+    showError('inputNombre', 'errNombre', 'El nombre completo es requerido');
+    valido = false;
+  } else if (nombre.value.length < 3) {
+    showError('inputNombre', 'errNombre', 'El nombre debe tener al menos 3 caracteres');
+    valido = false;
+  } else if (nombre.value.length > 100) {
+    showError('inputNombre', 'errNombre', 'El nombre no puede exceder 100 caracteres');
+    valido = false;
+  } else {
+    clearError('inputNombre', 'errNombre');
+  }
+
+  // 2. Validar PUESTO (requerido)
+  const puesto = document.getElementById('inputPuesto');
+  if (!puesto.value.trim()) {
+    showError('inputPuesto', 'errPuesto', 'El puesto es requerido');
+    valido = false;
+  } else if (puesto.value.length > 50) {
+    showError('inputPuesto', 'errPuesto', 'El puesto no puede exceder 50 caracteres');
+    valido = false;
+  } else {
+    clearError('inputPuesto', 'errPuesto');
+  }
+
+  // 3. Validar EDAD (requerida)
+  const edad = document.getElementById('inputEdad');
+  if (!edad.value) {
+    showError('inputEdad', 'errEdad', 'La edad es requerida');
+    valido = false;
+  } else {
+    const edadNum = parseInt(edad.value);
+    if (isNaN(edadNum)) {
+      showError('inputEdad', 'errEdad', 'La edad debe ser un número válido');
+      valido = false;
+    } else if (edadNum < 18) {
+      showError('inputEdad', 'errEdad', 'La edad mínima es 18 años');
+      valido = false;
+    } else if (edadNum > 100) {
+      showError('inputEdad', 'errEdad', 'La edad máxima es 100 años');
+      valido = false;
+    } else {
+      clearError('inputEdad', 'errEdad');
+    }
+  }
+
+  // 4. Validar DOMICILIO (requerido)
+  const domicilio = document.getElementById('inputDomicilio');
+  if (!domicilio.value.trim()) {
+    showError('inputDomicilio', 'errDomicilio', 'El domicilio es requerido');
+    valido = false;
+  } else if (domicilio.value.length > 150) {
+    showError('inputDomicilio', 'errDomicilio', 'El domicilio no puede exceder 150 caracteres');
+    valido = false;
+  } else {
+    clearError('inputDomicilio', 'errDomicilio');
+  }
+
+  // 5. Validar CONTRASEÑA (opcional - solo si se ingresa)
+  const pass = document.getElementById('inputPass');
+  const pass2 = document.getElementById('inputPass2');
+  const tieneMayuscula = /[A-Z]/.test(pass.value);
+  const tieneMinuscula = /[a-z]/.test(pass.value);
+  const tieneNumero = /[0-9]/.test(pass.value);
+
+  // Si se ingresó algo en el campo de contraseña
+  if (pass.value || pass2.value) {
+    if (!pass.value) {
+      showError('inputPass', 'errPass', 'Debes ingresar la nueva contraseña');
+      valido = false;
+    } else if (pass.value.length < 8) {
+      showError('inputPass', 'errPass', 'La contraseña debe tener al menos 8 caracteres');
+      valido = false;
+    } else if (!tieneMayuscula) {
+      showError('inputPass', 'errPass', 'La contraseña debe tener al menos 1 mayúscula');
+      valido = false;
+    } else if (!tieneMinuscula) {
+      showError('inputPass', 'errPass', 'La contraseña debe tener al menos 1 minúscula');
+      valido = false;
+    } else if (!tieneNumero) {
+      showError('inputPass', 'errPass', 'La contraseña debe tener al menos 1 número');
+      valido = false;
+    } else {
+      clearError('inputPass', 'errPass');
+    }
+
+    if (!pass2.value) {
+      showError('inputPass2', 'errPass2', 'Debes confirmar la contraseña');
+      valido = false;
+    } else if (pass.value !== pass2.value) {
+      showError('inputPass2', 'errPass2', 'Las contraseñas no coinciden');
+      valido = false;
+    } else {
+      clearError('inputPass2', 'errPass2');
+    }
+  } else {
+    // No se ingresó contraseña, limpiar errores
+    clearError('inputPass', 'errPass');
+    clearError('inputPass2', 'errPass2');
+  }
+
+  // 6. Validar FOTO (opcional - solo si se selecciona una)
+  const fotoInput = document.getElementById('fotoInput');
+  if (fotoInput.files && fotoInput.files[0]) {
+    const file = fotoInput.files[0];
+    const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const maxSize = 5 * 1024 * 1024;
+    
+    if (!tiposPermitidos.includes(file.type)) {
+      showToast('Formato de imagen no permitido. Use JPG, PNG, WEBP o GIF', 'error');
+      valido = false;
+    } else if (file.size > maxSize) {
+      showToast('La imagen no puede exceder 5MB', 'error');
+      valido = false;
+    }
+  }
+
+  // Mostrar resultado
+  if (valido) {
+    const btn = document.getElementById('btnGuardar');
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando...';
+    btn.disabled = true;
+    showToast('✓ Guardando cambios...', 'info');
+  } else {
+    showToast('Por favor, completa todos los campos obligatorios', 'error');
+    // Scroll al primer error
+    const firstError = document.querySelector('.form-error[style*="display: block"]');
+    if (firstError) {
+      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  return valido;
+}
+
+// Validación en tiempo real para todos los campos obligatorios
+document.getElementById('inputNombre').addEventListener('input', function() {
+  if (this.value.trim() && this.value.length >= 3) {
+    clearError('inputNombre', 'errNombre');
+  } else if (!this.value.trim()) {
+    showError('inputNombre', 'errNombre', 'El nombre completo es requerido');
+  } else if (this.value.length < 3) {
+    showError('inputNombre', 'errNombre', 'El nombre debe tener al menos 3 caracteres');
+  }
+});
+
+document.getElementById('inputPuesto').addEventListener('input', function() {
+  if (this.value.trim()) {
+    clearError('inputPuesto', 'errPuesto');
+  } else {
+    showError('inputPuesto', 'errPuesto', 'El puesto es requerido');
+  }
+});
+
+document.getElementById('inputEdad').addEventListener('input', function() {
+  if (this.value) {
+    const edadNum = parseInt(this.value);
+    if (!isNaN(edadNum) && edadNum >= 18 && edadNum <= 100) {
+      clearError('inputEdad', 'errEdad');
+    } else if (edadNum < 18) {
+      showError('inputEdad', 'errEdad', 'La edad mínima es 18 años');
+    } else if (edadNum > 100) {
+      showError('inputEdad', 'errEdad', 'La edad máxima es 100 años');
+    }
+  } else {
+    showError('inputEdad', 'errEdad', 'La edad es requerida');
+  }
+});
+
+document.getElementById('inputDomicilio').addEventListener('input', function() {
+  if (this.value.trim()) {
+    clearError('inputDomicilio', 'errDomicilio');
+  } else {
+    showError('inputDomicilio', 'errDomicilio', 'El domicilio es requerido');
+  }
+});
+
+// Limpiar errores de contraseña en tiempo real
+const passInputs = ['inputPass', 'inputPass2'];
+passInputs.forEach(id => {
+  const input = document.getElementById(id);
+  if (input) {
+    input.addEventListener('input', function() {
+      if (id === 'inputPass') {
+        if (this.value && this.value.length >= 8 && /[A-Z]/.test(this.value) && /[a-z]/.test(this.value) && /[0-9]/.test(this.value)) {
+          clearError('inputPass', 'errPass');
+        }
+      } else {
+        clearError('inputPass2', 'errPass2');
+        const pass = document.getElementById('inputPass');
+        const pass2 = document.getElementById('inputPass2');
+        if (pass.value && pass2.value && pass.value !== pass2.value) {
+          showError('inputPass2', 'errPass2', 'Las contraseñas no coinciden');
+        } else if (pass.value && pass2.value && pass.value === pass2.value) {
+          clearError('inputPass2', 'errPass2');
+        }
+      }
+    });
+  }
+});
+
+// Mobile sidebar toggle
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+
+if (menuBtn && sidebar && overlay) {
+  menuBtn.addEventListener('click', () => {
+    sidebar.classList.add('open');
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  });
+  
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  });
+}
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+});
+</script>
+</body>
+</html>

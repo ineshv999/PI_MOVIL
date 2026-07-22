@@ -19,10 +19,10 @@ export default function RegistrarUsuarioScreen({ navigation }) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo)) e.correo = 'Ingresa un correo electronico valido';
     if (!form.rol) e.rol = 'Selecciona un rol del sistema';
     if (form.password.length < 8 || !/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password) || !/\d/.test(form.password)) e.password = 'Minimo 8 caracteres, mayuscula, minuscula y numero';
-    if (form.confirm !== form.password) e.confirm = 'Las contrasenas no coinciden'; setErrors(e); return Object.keys(e).length === 0;
+    if (form.confirm !== form.password) e.confirm = 'Las contrasenas no coinciden'; if (photo?.fileSize > 5 * 1024 * 1024) e.photo = 'La foto no puede superar 5 MB'; setErrors(e); return Object.keys(e).length === 0;
   };
   const pickPhoto = async () => { const p = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!p.granted) return;
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.75 }); if (!r.canceled) setPhoto(r.assets[0]); };
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.75 }); if (!r.canceled) { const item = r.assets[0]; if (item.fileSize > 5 * 1024 * 1024) { setErrors((e) => ({ ...e, photo: 'La foto no puede superar 5 MB' })); return; } setPhoto(item); setErrors((e) => ({ ...e, photo: null })); } };
   const makeFormData = async (item) => { const data = new FormData(); if (Platform.OS === 'web') data.append('archivo', await (await fetch(item.uri)).blob(), item.fileName || 'perfil.jpg');
     else data.append('archivo', { uri: item.uri, name: item.fileName || 'perfil.jpg', type: item.mimeType || 'image/jpeg' }); return data; };
   const save = async () => { if (!validate()) return; try { setSaving(true); const parts = form.nombre.trim().split(/\s+/); const first = parts.shift();
@@ -36,7 +36,7 @@ export default function RegistrarUsuarioScreen({ navigation }) {
     <PageHeading eyebrow="// ALTA DE USUARIOS" title="Registrar colaborador" subtitle="Datos personales, acceso y permisos del sistema." />
     {errors.general && <ErrorBanner text={errors.general} />}
     <Card><Text style={styles.section}>Foto de perfil <Text style={styles.optional}>(opcional)</Text></Text>
-      <TouchableOpacity style={styles.photoBox} onPress={pickPhoto}>{photo ? <Image source={{ uri: photo.uri }} style={styles.photo} /> : <><Ionicons name="camera-outline" size={35} color={colors.placeholder} /><Text style={styles.hint}>JPG, PNG, WEBP · max. 5 MB</Text></>}</TouchableOpacity></Card>
+      <TouchableOpacity style={[styles.photoBox, errors.photo && styles.invalid]} onPress={pickPhoto}>{photo ? <Image source={{ uri: photo.uri }} style={styles.photo} /> : <><Ionicons name="camera-outline" size={35} color={colors.placeholder} /><Text style={styles.hint}>JPG, PNG, WEBP · max. 5 MB</Text></>}</TouchableOpacity>{errors.photo && <Text style={styles.error}>{errors.photo}</Text>}</Card>
     <Card><Text style={styles.section}>Datos personales</Text><Field label="NOMBRE COMPLETO *" value={form.nombre} onChange={(v) => change('nombre', v)} error={errors.nombre} placeholder="Ej. Maria Gonzalez" />
       <View style={styles.row}><Field box label="PUESTO / CARGO *" value={form.puesto} onChange={(v) => change('puesto', v)} error={errors.puesto} placeholder="Ej. Tecnico" />
         <Field box label="EDAD *" value={form.edad} onChange={(v) => change('edad', v)} error={errors.edad} placeholder="28" keyboardType="number-pad" /></View>

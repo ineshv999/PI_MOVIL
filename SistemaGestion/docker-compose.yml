@@ -1,0 +1,41 @@
+# docker-compose.yml para servidor privado
+version: '3.8'
+
+services:
+  flask-app:
+    build: ./app
+    container_name: sgaqaq-private-app
+    restart: unless-stopped
+    environment:
+      - DB_HOST=sqlserver
+      - DB_NAME=GestionActivos
+      - DB_USER=sa
+      - DB_PASSWORD=${DB_PASSWORD}
+      - SECRET_KEY=${SECRET_KEY}
+    ports:
+      - "5001:5000"  # Solo interno, no expuesto a internet
+    networks:
+      - private-network
+    depends_on:
+      - sqlserver
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sgaqaq-database
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${DB_PASSWORD}
+      - MSSQL_PID=Express
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - private-network
+
+volumes:
+  sqlserver-data:
+
+networks:
+  private-network:
+    driver: bridge
+    internal: true  # ¡Esto bloquea el acceso desde internet!

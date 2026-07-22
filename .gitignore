@@ -1,1 +1,12 @@
 tmp/
+**/.env
+**/node_modules/
+**/venv/
+**/.expo/
+**/.pytest_cache/
+**/__pycache__/
+Proyecto_Integrador/.codex-web-check/
+Proyecto_Integrador/dist-node22-check/
+Proyecto_Integrador/.metro-node22.pid
+SGA_API/uploads/
+SGA_API/*.db
