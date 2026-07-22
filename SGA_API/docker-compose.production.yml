@@ -24,7 +24,7 @@ x-api: &api
     migrate:
       condition: service_completed_successfully
   networks: [private]
-  volumes: [evidence_data:/app/uploads/evidencias]
+  volumes: [evidence_data:/app/uploads]
   healthcheck:
     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
     interval: 15s

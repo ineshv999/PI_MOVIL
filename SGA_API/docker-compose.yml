@@ -1,7 +1,7 @@
 services:
   api:
     build: .
-    command: sh -c "alembic upgrade head && python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c "alembic upgrade head && python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres
@@ -25,7 +25,7 @@ services:
       - "${API_EXPOSE_PORT:-8001}:8000"
     volumes:
       - ./:/app
-      - evidence_data:/app/uploads/evidencias
+      - evidence_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy

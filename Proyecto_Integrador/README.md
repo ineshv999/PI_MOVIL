@@ -8,7 +8,7 @@ Con la API Docker activa en el puerto 8001:
 
 ```cmd
 npm install
-npx expo start --web
+npm run web
 ```
 
 Abre `http://localhost:8081`. La URL predeterminada de la API para web es `http://localhost:8001/api/v1`.

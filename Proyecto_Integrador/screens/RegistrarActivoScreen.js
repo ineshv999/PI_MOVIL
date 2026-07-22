@@ -1,135 +1,52 @@
-import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Alert,
-  Text,
-} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import AppShell from '../components/AppShell';
-import {
-  colors,
-  PageHeading,
-  Card,
-  FormField,
-  PrimaryButton,
-} from '../components/ScreenUI';
-import { apiErrorMessage, endpoints } from '../services/api';
+import { Card, colors, PageHeading, PrimaryButton, SecondaryButton } from '../components/ScreenUI';
+import { apiErrorMessage, downloadWithAuth, endpoints } from '../services/api';
 
+const empty = { nombre: '', edificioId: '', tipoUbicacion: '', detalleUbicacion: '', garantiaCantidad: '', garantiaPeriodo: '', observaciones: '' };
 export default function RegistrarActivoScreen({ navigation }) {
-  const [nombre, setNombre] = useState('');
-  const [folio, setFolio] = useState('');
-  const [edificio, setEdificio] = useState('');
-  const [ubicacion, setUbicacion] = useState('');
-  const [garantia, setGarantia] = useState('');
-  const [qr, setQr] = useState('');
-
-  const save = async () => {
-    if (!nombre.trim() || !folio.trim() || !edificio.trim() || !ubicacion.trim()) {
-      Alert.alert('Campos incompletos', 'Completa nombre, folio, edificio y ubicación.');
-      return;
-    }
-
-    try {
-      let buildings = await endpoints.buildings();
-      let building = buildings.find((item) => item.nombre.toLowerCase() === edificio.trim().toLowerCase());
-      if (!building) building = await endpoints.createBuilding({ nombre: edificio.trim(), ubicacion: ubicacion.trim() });
-      const statuses = await endpoints.statuses();
-      const status = statuses.find((item) => item.nombre === 'Bueno') || statuses[0];
-      await endpoints.createAsset({ codigo_qr: (qr || folio).trim(), nombre: nombre.trim(), descripcion: null,
-        numero_serie: folio.trim(), edificio_id: building.id, estatus_id: status?.id,
-        ubicacion: ubicacion.trim(), garantia: garantia.trim() || null, foto_url: null });
-    } catch (error) { Alert.alert('No fue posible registrar', apiErrorMessage(error)); return; }
-    Alert.alert('Activo registrado', `${nombre} se agregó al inventario.`);
-    setNombre('');
-    setFolio('');
-    setEdificio('');
-    setUbicacion('');
-    setGarantia('');
-    setQr('');
-  };
-
-  return (
-    <AppShell
-      navigation={navigation}
-      title="Registrar activo"
-      activeRoute="RegistrarActivo"
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <PageHeading
-          eyebrow="// ALTA DE INVENTARIO"
-          title="Registrar activo"
-          subtitle="Captura la información base que será utilizada durante las auditorías."
-        />
-
-        <Card>
-          <FormField
-            label="NOMBRE DEL ACTIVO *"
-            value={nombre}
-            onChangeText={setNombre}
-            placeholder="Ej. Laptop Dell Latitude"
-            icon="cube-outline"
-          />
-          <FormField
-            label="FOLIO *"
-            value={folio}
-            onChangeText={setFolio}
-            placeholder="ACT-0001"
-            icon="pricetag-outline"
-          />
-          <FormField
-            label="EDIFICIO *"
-            value={edificio}
-            onChangeText={setEdificio}
-            placeholder="Ej. Edificio A"
-            icon="business-outline"
-          />
-          <FormField
-            label="UBICACIÓN ACTUAL *"
-            value={ubicacion}
-            onChangeText={setUbicacion}
-            placeholder="Ej. Laboratorio 3"
-            icon="location-outline"
-          />
-          <FormField
-            label="GARANTÍA"
-            value={garantia}
-            onChangeText={setGarantia}
-            placeholder="AAAA-MM-DD"
-            icon="calendar-outline"
-          />
-          <FormField
-            label="CÓDIGO QR"
-            value={qr}
-            onChangeText={setQr}
-            placeholder="Contenido o identificador QR"
-            icon="qr-code-outline"
-          />
-
-          <Text style={styles.note}>
-            La fotografía y el código QR podrán conectarse posteriormente con
-            cámara y almacenamiento.
-          </Text>
-
-          <PrimaryButton
-            title="Registrar activo"
-            icon="add-circle-outline"
-            onPress={save}
-          />
-        </Card>
-      </ScrollView>
-    </AppShell>
-  );
+  const [form, setForm] = useState(empty); const [errors, setErrors] = useState({}); const [buildings, setBuildings] = useState([]); const [photo, setPhoto] = useState(null);
+  const [created, setCreated] = useState(null); const [qrData, setQrData] = useState(null); const [saving, setSaving] = useState(false);
+  useEffect(() => { endpoints.buildings().then(setBuildings).catch(() => {}); }, []);
+  const change = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: null, general: null })); };
+  const validate = () => { const e = {}; if (form.nombre.trim().length < 2) e.nombre = 'El nombre del activo es requerido'; if (!form.edificioId) e.edificioId = 'Selecciona un edificio';
+    if (!form.tipoUbicacion) e.tipoUbicacion = 'Selecciona un tipo de ubicacion'; if (form.detalleUbicacion.trim().length < 2) e.detalleUbicacion = 'Proporciona el detalle de ubicacion';
+    if (!/^\d+$/.test(form.garantiaCantidad) || +form.garantiaCantidad < 1) e.garantiaCantidad = 'Ingresa una cantidad valida'; if (!form.garantiaPeriodo) e.garantiaPeriodo = 'Selecciona un periodo'; setErrors(e); return !Object.keys(e).length; };
+  const pick = async () => { const p = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (!p.granted) return; const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: .75 }); if (!r.canceled) setPhoto(r.assets[0]); };
+  const fileForm = async (item) => { const d = new FormData(); if (Platform.OS === 'web') d.append('archivo', await (await fetch(item.uri)).blob(), item.fileName || 'activo.jpg'); else d.append('archivo', { uri: item.uri, name: item.fileName || 'activo.jpg', type: item.mimeType || 'image/jpeg' }); return d; };
+  const blobDataUrl = (blob) => new Promise((resolve, reject) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(blob); });
+  const save = async () => { if (!validate()) return; try { setSaving(true); const statuses = await endpoints.statuses(); const status = statuses.find((s) => s.nombre === 'Bueno') || statuses[0];
+    const asset = await endpoints.createAsset({ codigo_qr: null, nombre: form.nombre.trim(), descripcion: form.observaciones.trim() || null, numero_serie: null,
+      edificio_id: +form.edificioId, estatus_id: status.id, ubicacion: `${form.tipoUbicacion}: ${form.detalleUbicacion.trim()}`,
+      garantia: `${form.garantiaCantidad} ${form.garantiaPeriodo}`, foto_url: null }); if (photo) await endpoints.uploadAssetPhoto(asset.id, await fileForm(photo));
+    setCreated(asset); setQrData(await blobDataUrl(await downloadWithAuth(`/activos/${asset.id}/qr`))); setForm(empty); setPhoto(null);
+  } catch (error) { setErrors({ general: apiErrorMessage(error) }); } finally { setSaving(false); } };
+  const download = async () => { if (Platform.OS === 'web') { const a = document.createElement('a'); a.href = qrData; a.download = `${created.folio}-QR.png`; a.click(); return; }
+    const base64 = qrData.split(',')[1]; const path = `${FileSystem.cacheDirectory}${created.folio}-QR.png`; await FileSystem.writeAsStringAsync(path, base64, { encoding: FileSystem.EncodingType.Base64 }); await Sharing.shareAsync(path, { mimeType: 'image/png' }); };
+  const printQr = () => { if (Platform.OS !== 'web') { download(); return; } const w = window.open('', '_blank'); w.document.write(`<html><body style="text-align:center;font-family:sans-serif"><h2>${created.nombre}</h2><p>${created.folio}</p><img src="${qrData}" style="width:320px"/><script>onload=()=>print()</script></body></html>`); w.document.close(); };
+  return <AppShell navigation={navigation} title="Registrar activo" activeRoute="RegistrarActivo"><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <PageHeading eyebrow="// ALTA DE INVENTARIO" title="Registrar activo" subtitle="El folio y el codigo QR se generan automaticamente." />
+    {errors.general && <View style={styles.banner}><Ionicons name="alert-circle" size={19} color={colors.danger}/><Text style={styles.bannerText}>{errors.general}</Text></View>}
+    <Card><Text style={styles.section}>Informacion del activo</Text><Field label="NOMBRE DEL ACTIVO *" value={form.nombre} onChange={(v) => change('nombre',v)} error={errors.nombre} placeholder="Ej. Monitor Dell UltraSharp" />
+      <Choice label="EDIFICIO *" items={buildings.map((b) => [String(b.id),b.nombre])} value={form.edificioId} onChange={(v)=>change('edificioId',v)} error={errors.edificioId}/>
+      <Choice label="TIPO DE UBICACION *" items={['Oficina','Salon','Laboratorio'].map((x)=>[x,x])} value={form.tipoUbicacion} onChange={(v)=>change('tipoUbicacion',v)} error={errors.tipoUbicacion}/>
+      <Field label="DETALLE DE UBICACION *" value={form.detalleUbicacion} onChange={(v)=>change('detalleUbicacion',v)} error={errors.detalleUbicacion} placeholder="Ej. 203, Escritorio 4" />
+      <View style={styles.row}><Field box label="TIEMPO DE GARANTIA *" value={form.garantiaCantidad} onChange={(v)=>change('garantiaCantidad',v)} error={errors.garantiaCantidad} placeholder="Cantidad" keyboardType="number-pad" />
+        <Choice box label="PERIODO *" items={['Dias','Meses','Años'].map((x)=>[x,x])} value={form.garantiaPeriodo} onChange={(v)=>change('garantiaPeriodo',v)} error={errors.garantiaPeriodo}/></View>
+      <Field label="OBSERVACIONES (OPCIONAL)" value={form.observaciones} onChange={(v)=>change('observaciones',v)} placeholder="Estado, accesorios o notas" multiline />
+      <Text style={styles.label}>FOTOGRAFIA (OPCIONAL)</Text><TouchableOpacity style={styles.photoBox} onPress={pick}>{photo ? <Image source={{uri:photo.uri}} style={styles.photo}/> : <><Ionicons name="image-outline" size={35} color={colors.placeholder}/><Text style={styles.hint}>PNG, JPG, WEBP · max. 5 MB</Text></>}</TouchableOpacity>
+      <PrimaryButton title={saving?'Registrando...':'Registrar activo'} icon="add-circle-outline" onPress={save} disabled={saving}/></Card>
+  </ScrollView>
+  <Modal visible={!!created} transparent animationType="fade"><View style={styles.overlay}><View style={styles.modal}><Text style={styles.success}>● REGISTRO EXITOSO</Text><Text style={styles.modalTitle}>¡Activo registrado!</Text><Text style={styles.folio}>{created?.folio}</Text>
+    {qrData && <Image source={{uri:qrData}} style={styles.qr}/>}<Text style={styles.notice}>El QR es unico para este activo y no cambia aunque edites su informacion.</Text>
+    <PrimaryButton title="Descargar QR" icon="download-outline" onPress={download}/><SecondaryButton title="Imprimir" icon="print-outline" onPress={printQr}/><SecondaryButton title="Cerrar" icon="close-outline" onPress={()=>setCreated(null)}/></View></View></Modal>
+  </AppShell>;
 }
-
-const styles = StyleSheet.create({
-  content: {
-    padding: 20,
-    paddingBottom: 42,
-  },
-  note: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 17,
-    marginBottom: 16,
-  },
-});
+function Field({label,value,onChange,error,placeholder,keyboardType,multiline,box}) { return <View style={[styles.field,box&&styles.half]}><Text style={styles.label}>{label}</Text><TextInput style={[styles.input,multiline&&styles.area,error&&styles.invalid]} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.placeholder} keyboardType={keyboardType} multiline={multiline}/>{error&&<Text style={styles.error}>{error}</Text>}</View>; }
+function Choice({label,items,value,onChange,error,box}) { return <View style={[styles.field,box&&styles.half]}><Text style={styles.label}>{label}</Text><View style={styles.choices}>{items.map(([id,name])=><TouchableOpacity key={id} style={[styles.choice,value===id&&styles.selected,error&&styles.invalid]} onPress={()=>onChange(id)}><Text style={styles.choiceText}>{name}</Text></TouchableOpacity>)}</View>{error&&<Text style={styles.error}>{error}</Text>}</View>; }
+const styles=StyleSheet.create({content:{padding:20,paddingBottom:45},section:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:14},field:{marginBottom:15},half:{flex:1},label:{color:colors.textSecondary,fontSize:10,fontWeight:'800',letterSpacing:.6,marginBottom:7},input:{minHeight:48,borderWidth:1,borderColor:colors.border,borderRadius:9,backgroundColor:colors.background,paddingHorizontal:12,color:colors.textPrimary},area:{height:105,textAlignVertical:'top',paddingTop:12},invalid:{borderColor:colors.danger},error:{color:colors.danger,fontSize:10,fontWeight:'700',marginTop:5},row:{flexDirection:'row',gap:10},choices:{flexDirection:'row',flexWrap:'wrap',gap:7},choice:{paddingVertical:11,paddingHorizontal:12,borderWidth:1,borderColor:colors.border,borderRadius:8},selected:{borderColor:colors.accent,backgroundColor:colors.accentSoft},choiceText:{fontSize:11,color:colors.textPrimary},photoBox:{height:180,borderWidth:1,borderStyle:'dashed',borderColor:colors.border,borderRadius:12,alignItems:'center',justifyContent:'center',overflow:'hidden',marginBottom:16},photo:{width:'100%',height:'100%'},hint:{color:colors.textSecondary,fontSize:10,marginTop:7},banner:{flexDirection:'row',gap:9,padding:13,backgroundColor:colors.dangerSoft,borderRadius:9,marginBottom:14},bannerText:{color:colors.danger,flex:1},overlay:{flex:1,backgroundColor:'rgba(8,15,13,.7)',alignItems:'center',justifyContent:'center',padding:18},modal:{width:'100%',maxWidth:430,backgroundColor:'#fff',borderRadius:20,padding:22,alignItems:'center',borderTopWidth:4,borderTopColor:colors.accent},success:{color:colors.accentDark,fontSize:10,fontWeight:'800'},modalTitle:{fontSize:23,fontWeight:'900',marginTop:8},folio:{color:colors.textSecondary,marginTop:5},qr:{width:230,height:230,marginVertical:16},notice:{color:colors.accentDark,backgroundColor:colors.accentSoft,padding:12,borderRadius:9,fontSize:11,lineHeight:17,marginBottom:14}});

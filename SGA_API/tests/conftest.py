@@ -36,7 +36,8 @@ def client():
 @pytest.fixture
 def admin_headers(client):
     registration = {"username": "admin", "password": "Contrasena123!", "nombres": "Admin",
-                    "apellidos": "Sistema", "correo": "admin@example.com", "telefono": "4421234567"}
+                    "apellidos": "Sistema", "correo": "admin@example.com", "telefono": "4421234567",
+                    "puesto": "Administrador", "edad": 30, "domicilio": "Campus UPQ, Queretaro"}
     assert client.post("/api/v1/auth/registro", json=registration).status_code == 201
     token = client.post("/api/v1/auth/login", json={"username": "admin", "password": "Contrasena123!"}).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

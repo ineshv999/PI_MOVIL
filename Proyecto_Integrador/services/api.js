@@ -76,11 +76,19 @@ export async function api(path, options = {}, retry = true) {
   }
 }
 
+export async function downloadWithAuth(path) {
+  const token = await getStoredItem('access_token');
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw await response.json();
+  return response.blob();
+}
+
 export const endpoints = {
   login: (username, password) => api('/auth/login', { method: 'POST', body: { username, password } }, false),
   me: () => api('/auth/me'),
   users: () => api('/usuarios'),
   createUser: (data, role) => api(`/usuarios?rol=${role}`, { method: 'POST', body: data }),
+  uploadUserPhoto: (id, form) => api(`/usuarios/${id}/foto`, { method: 'POST', body: form }),
   setUserActive: (id, active) => api(`/usuarios/${id}/activo?activo=${active}`, { method: 'PATCH' }),
   buildings: () => api('/catalogos/edificios'),
   createBuilding: (data) => api('/catalogos/edificios', { method: 'POST', body: data }),
@@ -88,6 +96,7 @@ export const endpoints = {
   assets: (search = '') => api(`/activos${search ? `?buscar=${encodeURIComponent(search)}` : ''}`),
   assetByQr: (code) => api(`/activos/qr/${encodeURIComponent(code)}`),
   createAsset: (data) => api('/activos', { method: 'POST', body: data }),
+  uploadAssetPhoto: (id, form) => api(`/activos/${id}/foto`, { method: 'POST', body: form }),
   updateAsset: (id, data) => api(`/activos/${id}`, { method: 'PATCH', body: data }),
   audits: (search = '') => api(`/auditorias${search ? `?buscar=${encodeURIComponent(search)}` : ''}`),
   audit: (id) => api(`/auditorias/${id}`),

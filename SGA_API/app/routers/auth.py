@@ -20,7 +20,8 @@ DbSession = Annotated[Session, Depends(get_db)]
 def serialize_user(user: Usuario) -> UsuarioRespuesta:
     return UsuarioRespuesta(id=user.id, username=user.username, rol=user.rol.nombre,
                             nombres=user.persona.nombres, apellidos=user.persona.apellidos,
-                            correo=user.persona.correo, activo=user.activo)
+                            correo=user.persona.correo, activo=user.activo, puesto=user.persona.puesto,
+                            edad=user.persona.edad, domicilio=user.persona.domicilio, foto_url=user.persona.foto_url)
 
 
 def issue_tokens(user: Usuario, db: Session) -> TokenRespuesta:
@@ -40,8 +41,8 @@ def register(data: RegistroUsuario, db: DbSession) -> UsuarioRespuesta:
         role = Rol(nombre="administrador")
         db.add(role)
         db.flush()
-    persona = Persona(nombres=data.nombres, apellidos=data.apellidos, correo=str(data.correo).lower(),
-                      telefono_cifrado=encrypt_value(data.telefono) if data.telefono else None)
+    persona = Persona(nombres=data.nombres, apellidos=data.apellidos, correo=str(data.correo).lower(), puesto=data.puesto,
+                      edad=data.edad, domicilio=data.domicilio, telefono_cifrado=encrypt_value(data.telefono) if data.telefono else None)
     db.add(persona)
     db.flush()
     user = Usuario(username=data.username.lower(), password_hash=hash_password(data.password),

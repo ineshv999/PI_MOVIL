@@ -20,6 +20,10 @@ class Persona(Base):
     apellidos: Mapped[str] = mapped_column(String(80))
     correo: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     telefono_cifrado: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    puesto: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    edad: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    domicilio: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    foto_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     usuario: Mapped["Usuario | None"] = relationship(back_populates="persona", uselist=False)
 
 

@@ -8,6 +8,9 @@ class RegistroUsuario(BaseModel):
     apellidos: str = Field(min_length=2, max_length=80)
     correo: EmailStr
     telefono: str | None = Field(default=None, max_length=25)
+    puesto: str = Field(min_length=2, max_length=100)
+    edad: int = Field(ge=18, le=100)
+    domicilio: str = Field(min_length=5, max_length=250)
 
     @field_validator("username", "nombres", "apellidos", mode="before")
     @classmethod
@@ -38,3 +41,7 @@ class UsuarioRespuesta(BaseModel):
     apellidos: str
     correo: EmailStr
     activo: bool
+    puesto: str | None = None
+    edad: int | None = None
+    domicilio: str | None = None
+    foto_url: str | None = None

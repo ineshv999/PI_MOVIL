@@ -8,7 +8,8 @@ def test_auth_refresh_and_closed_public_registration(client, admin_headers):
     me = client.get("/api/v1/auth/me", headers=admin_headers)
     assert me.status_code == 200 and me.json()["rol"] == "administrador"
     duplicate_public = client.post("/api/v1/auth/registro", json={"username": "otro", "password": "Contrasena123!",
-        "nombres": "Otro", "apellidos": "Usuario", "correo": "otro@example.com"})
+        "nombres": "Otro", "apellidos": "Usuario", "correo": "otro@example.com",
+        "puesto": "Auditor", "edad": 25, "domicilio": "Queretaro, Queretaro"})
     assert duplicate_public.status_code == 403
     tokens = client.post("/api/v1/auth/login", json={"username": "admin", "password": "Contrasena123!"}).json()
     refreshed = client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
@@ -18,7 +19,8 @@ def test_auth_refresh_and_closed_public_registration(client, admin_headers):
 
 def test_complete_mobile_audit_flow(client, admin_headers):
     user_data = {"username": "auditor", "password": "Contrasena123!", "nombres": "Ana",
-                 "apellidos": "Auditora", "correo": "ana@example.com", "telefono": "4427654321"}
+                 "apellidos": "Auditora", "correo": "ana@example.com", "telefono": "4427654321",
+                 "puesto": "Auditora", "edad": 28, "domicilio": "Queretaro, Queretaro"}
     user = client.post("/api/v1/usuarios", params={"rol": "usuario"}, json=user_data, headers=admin_headers)
     assert user.status_code == 201
     user_id = user.json()["id"]
