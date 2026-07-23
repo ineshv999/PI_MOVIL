@@ -78,6 +78,28 @@ class Activo(Base):
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class HistorialMovimiento(Base):
+    __tablename__ = "historial_movimientos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    activo_id: Mapped[int | None] = mapped_column(ForeignKey("activos.id", ondelete="SET NULL"), nullable=True, index=True)
+    activo_nombre: Mapped[str] = mapped_column(String(120))
+    ubicacion: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    accion: Mapped[str] = mapped_column(String(30), index=True)
+    resumen: Mapped[str] = mapped_column(String(500))
+    creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    detalles: Mapped[list["DetalleHistorial"]] = relationship(cascade="all, delete-orphan")
+
+
+class DetalleHistorial(Base):
+    __tablename__ = "detalle_historial"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    historial_id: Mapped[int] = mapped_column(ForeignKey("historial_movimientos.id", ondelete="CASCADE"), index=True)
+    campo: Mapped[str] = mapped_column(String(80))
+    valor_anterior: Mapped[str | None] = mapped_column(Text, nullable=True)
+    valor_actual: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class Auditoria(Base):
     __tablename__ = "auditorias"
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -5,7 +5,7 @@ from starlette.responses import Response
 
 from app.core.config import get_settings
 from app.core.observability import SecurityAndMetricsMiddleware
-from app.routers import activos, auditorias, auth, catalogos, health, usuarios
+from app.routers import activos, auditorias, auth, catalogos, health, movimientos, usuarios
 
 settings = get_settings()
 
@@ -31,6 +31,7 @@ app.include_router(activos.router, prefix=settings.api_v1_prefix)
 app.include_router(catalogos.router, prefix=settings.api_v1_prefix)
 app.include_router(usuarios.router, prefix=settings.api_v1_prefix)
 app.include_router(auditorias.router, prefix=settings.api_v1_prefix)
+app.include_router(movimientos.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/metrics", include_in_schema=False)

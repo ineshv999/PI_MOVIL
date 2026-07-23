@@ -25,11 +25,13 @@ def list_users(db: DbSession) -> list[UsuarioRespuesta]:
 
 @router.post("", response_model=UsuarioRespuesta, status_code=status.HTTP_201_CREATED)
 def create_user(data: RegistroUsuario, db: DbSession, rol: str = "usuario") -> UsuarioRespuesta:
-    if rol not in {"usuario", "administrador"}:
+    if rol not in {"usuario", "auditor", "administrador"}:
         raise HTTPException(status_code=422, detail="Rol no valido")
     if db.scalar(select(Usuario).where(Usuario.username == data.username.lower())) or db.scalar(select(Persona).where(Persona.correo == str(data.correo).lower())):
         raise HTTPException(status_code=409, detail="El usuario o correo ya existe")
     role = db.scalar(select(Rol).where(Rol.nombre == rol))
+    if not role:
+        role = Rol(nombre=rol); db.add(role); db.flush()
     person = Persona(nombres=data.nombres, apellidos=data.apellidos, correo=str(data.correo).lower(), puesto=data.puesto,
                      edad=data.edad, domicilio=data.domicilio,
                      telefono_cifrado=encrypt_value(data.telefono) if data.telefono else None)

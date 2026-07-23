@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StatusBar, Text, TouchableOpacity, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, StatusBar, Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../services/api';
+import { getStoredItem } from '../services/storage';
+
+const defaultProfile = require('../assets/default-profile.jpg');
 
 const colors = {
   headerBg: '#FFFFFF',
@@ -27,13 +31,17 @@ export default function AppShell({
   const userName = user ? `${user.nombres} ${user.apellidos}` : 'Usuario';
   const userRole = user?.rol?.toUpperCase() || 'USUARIO';
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [profileSource, setProfileSource] = useState(defaultProfile);
 
-  const initials = userName
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      if (!user?.foto_url) { if (active) setProfileSource(defaultProfile); return; }
+      const token = await getStoredItem('access_token');
+      if (active) setProfileSource({ uri: `${API_BASE_URL}/auth/me/foto`, headers: { Authorization: `Bearer ${token}` } });
+    })();
+    return () => { active = false; };
+  }, [user?.id, user?.foto_url]);
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
@@ -46,9 +54,7 @@ export default function AppShell({
           <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>
-        <View style={styles.avatarBadge}>
-          <Text style={styles.avatarBadgeText}>{initials}</Text>
-        </View>
+        <Image source={profileSource} style={styles.headerAvatar} onError={() => setProfileSource(defaultProfile)} />
       </View>
 
       <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>{children}</KeyboardAvoidingView>
@@ -60,6 +66,7 @@ export default function AppShell({
         activeRoute={activeRoute}
         userName={userName}
         userRole={userRole}
+        profileSource={profileSource}
         onLogout={async () => { await logout(); navigation?.reset({ index: 0, routes: [{ name: 'Login' }] }); }}
       />
     </SafeAreaView>
@@ -80,12 +87,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary },
-  avatarBadge: {
-    backgroundColor: colors.accent,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  avatarBadgeText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  headerAvatar: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: colors.accent },
   content: { flex: 1 },
 });

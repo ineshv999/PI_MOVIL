@@ -18,7 +18,7 @@ def main() -> None:
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
         existing_roles = set(db.scalars(select(Rol.nombre)).all())
-        for role_name in ("administrador", "usuario"):
+        for role_name in ("administrador", "auditor", "usuario"):
             if role_name not in existing_roles:
                 db.add(Rol(nombre=role_name))
         existing_statuses = set(db.scalars(select(Estatus.nombre)).all())

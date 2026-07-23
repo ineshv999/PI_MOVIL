@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import current_user, require_admin
-from app.models import Activo, Edificio, Estatus, Usuario
+from app.models import Activo, DetalleHistorial, Edificio, Estatus, HistorialMovimiento, Usuario
 from app.schemas.activos import ActivoActualizar, ActivoCrear, ActivoRespuesta
 
 router = APIRouter(prefix="/activos", tags=["Activos"])
@@ -28,6 +28,17 @@ def validate_catalogs(data: ActivoCrear | ActivoActualizar, db: Session) -> None
         raise HTTPException(status_code=422, detail="El edificio no existe")
     if data.estatus_id and not db.get(Estatus, data.estatus_id):
         raise HTTPException(status_code=422, detail="El estatus no existe")
+
+
+def add_history(db: Session, user: Usuario, asset: Activo, action: str, summary: str,
+                changes: list[tuple[str, object, object]]) -> None:
+    movement = HistorialMovimiento(usuario_id=user.id, activo_id=asset.id, activo_nombre=asset.nombre,
+                                   ubicacion=asset.ubicacion, accion=action, resumen=summary)
+    db.add(movement); db.flush()
+    for field, before, after in changes:
+        db.add(DetalleHistorial(historial_id=movement.id, campo=field,
+                                valor_anterior=None if before is None else str(before),
+                                valor_actual=None if after is None else str(after)))
 
 
 @router.get("", response_model=list[ActivoRespuesta])
@@ -57,13 +68,16 @@ def get_asset(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(curren
 
 
 @router.post("", response_model=ActivoRespuesta, status_code=status.HTTP_201_CREATED)
-def create_asset(data: ActivoCrear, db: DbSession, _: Annotated[Usuario, Depends(require_admin)]) -> Activo:
+def create_asset(data: ActivoCrear, db: DbSession, user: Annotated[Usuario, Depends(require_admin)]) -> Activo:
     validate_catalogs(data, db)
     values = data.model_dump()
     values["codigo_qr"] = values["codigo_qr"] or f"SGA-{uuid4().hex.upper()}"
     asset = Activo(**values)
-    db.add(asset)
     try:
+        db.add(asset); db.flush()
+        add_history(db, user, asset, "alta", "Activo registrado",
+                    [("Nombre", None, asset.nombre), ("Ubicacion", None, asset.ubicacion),
+                     ("Edificio", None, asset.edificio_id), ("Garantia", None, asset.garantia)])
         db.commit()
     except IntegrityError as exc:
         db.rollback(); raise HTTPException(status_code=409, detail="El codigo QR o numero de serie ya existe") from exc
@@ -73,13 +87,20 @@ def create_asset(data: ActivoCrear, db: DbSession, _: Annotated[Usuario, Depends
 
 @router.patch("/{asset_id}", response_model=ActivoRespuesta)
 def update_asset(asset_id: int, data: ActivoActualizar, db: DbSession,
-                 _: Annotated[Usuario, Depends(require_admin)]) -> Activo:
+                 user: Annotated[Usuario, Depends(require_admin)]) -> Activo:
     asset = db.get(Activo, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Activo no encontrado")
     validate_catalogs(data, db)
+    labels = {"nombre": "Nombre", "descripcion": "Observaciones", "numero_serie": "Numero de serie",
+              "edificio_id": "Edificio", "estatus_id": "Estatus", "ubicacion": "Ubicacion",
+              "garantia": "Garantia", "activo": "Activo"}
+    changes = []
     for key, value in data.model_dump(exclude_unset=True).items():
+        previous = getattr(asset, key)
+        if previous != value: changes.append((labels.get(key, key), previous, value))
         setattr(asset, key, value)
+    if changes: add_history(db, user, asset, "edicion", "Activo actualizado", changes)
     try:
         db.commit()
     except IntegrityError as exc:
@@ -108,7 +129,7 @@ def get_asset_photo(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(
 
 
 @router.post("/{asset_id}/foto", response_model=ActivoRespuesta)
-async def upload_asset_photo(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(require_admin)], archivo: UploadFile = File()) -> dict:
+async def upload_asset_photo(asset_id: int, db: DbSession, user: Annotated[Usuario, Depends(require_admin)], archivo: UploadFile = File()) -> dict:
     asset = db.get(Activo, asset_id)
     if not asset: raise HTTPException(status_code=404, detail="Activo no encontrado")
     allowed = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
@@ -116,12 +137,16 @@ async def upload_asset_photo(asset_id: int, db: DbSession, _: Annotated[Usuario,
     content = await archivo.read(5 * 1024 * 1024 + 1)
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
     folder = Path("uploads/activos"); folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
-    asset.foto_url = str(path); db.commit(); db.refresh(asset); return asset_response(asset)
+    previous = asset.foto_url; asset.foto_url = str(path)
+    add_history(db, user, asset, "edicion", "Fotografia actualizada", [("Fotografia", previous, "Nueva fotografia")])
+    db.commit(); db.refresh(asset); return asset_response(asset)
 
 
 @router.delete("/{asset_id}", status_code=204)
-def deactivate_asset(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(require_admin)]) -> None:
+def deactivate_asset(asset_id: int, db: DbSession, user: Annotated[Usuario, Depends(require_admin)]) -> None:
     asset = db.get(Activo, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Activo no encontrado")
-    asset.activo = False; db.commit()
+    asset.activo = False
+    add_history(db, user, asset, "retiro", "Activo retirado del inventario", [("Activo", True, False)])
+    db.commit()

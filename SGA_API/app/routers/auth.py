@@ -1,7 +1,10 @@
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -107,4 +110,26 @@ def update_me(data: UsuarioActualizar, db: DbSession,
     if password: user.password_hash = hash_password(password)
     for key, value in values.items(): setattr(user.persona, key, value)
     db.commit(); db.refresh(user)
+    return serialize_user(user)
+
+
+@router.get("/me/foto")
+def my_photo(user: Annotated[Usuario, Depends(current_user)]) -> Response:
+    if not user.persona.foto_url: raise HTTPException(status_code=404, detail="El usuario no tiene fotografia")
+    path = Path(user.persona.foto_url)
+    if not path.is_file(): raise HTTPException(status_code=404, detail="La fotografia no esta disponible")
+    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    return Response(path.read_bytes(), media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
+@router.post("/me/foto", response_model=UsuarioRespuesta)
+async def update_my_photo(db: DbSession, user: Annotated[Usuario, Depends(current_user)],
+                          archivo: UploadFile = File()) -> UsuarioRespuesta:
+    allowed = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    if archivo.content_type not in allowed: raise HTTPException(status_code=415, detail="Formato de imagen no permitido")
+    content = await archivo.read(5 * 1024 * 1024 + 1)
+    if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
+    folder = Path("uploads/perfiles"); folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
+    user.persona.foto_url = str(path); db.commit(); db.refresh(user)
     return serialize_user(user)

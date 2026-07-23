@@ -83,6 +83,18 @@ def asset_tuple(asset, buildings):
             f"media/activos/{asset['id']}/qr", asset.get("descripcion"), asset.get("edificio_id"))
 
 
+def asset_web(asset, buildings):
+    created = datetime.fromisoformat(asset["creado_en"].replace("Z", "+00:00"))
+    return {"id": asset["folio"], "id_numerico": asset["id"], "folio": asset["folio"],
+            "codigo": asset["codigo_qr"], "nombre": asset["nombre"],
+            "edificio": buildings.get(asset.get("edificio_id"), "Sin edificio"),
+            "ubicacion": asset.get("ubicacion"), "garantia": asset.get("garantia"),
+            "observaciones": asset.get("descripcion"), "fecha": created.strftime("%Y-%m-%d"),
+            "estado": "Activo" if asset.get("activo") else "Retirado", "foto": None,
+            "qr": f"media/activos/{asset['id']}/qr", "usuario_nombre": "—",
+            "usuario_username": "—", "usuario_rol": "—"}
+
+
 @app.errorhandler(ApiError)
 def handle_api_error(error):
     if error.status_code == 401:
@@ -141,7 +153,8 @@ def crear_usuario():
                    "correo": email, "telefono": None, "puesto": request.form.get("puesto", "").strip(),
                    "edad": request.form.get("edad", type=int), "domicilio": request.form.get("domicilio", "").strip()}
         role = request.form.get("rol", "usuario").lower()
-        created = api_call("POST", f"usuarios?rol={'administrador' if 'admin' in role else 'usuario'}", json=payload)
+        role = role if role in {"usuario", "auditor", "administrador"} else "usuario"
+        created = api_call("POST", f"usuarios?rol={role}", json=payload)
         if request.files.get("foto") and request.files["foto"].filename:
             photo = request.files["foto"]
             api_call("POST", f"usuarios/{created['id']}/foto", files={"archivo": (photo.filename, photo.stream, photo.mimetype)})
@@ -195,7 +208,7 @@ def profile_page(template):
             payload["password"] = password
         me = api_call("PATCH", "auth/me", json=payload)
         photo = request.files.get("foto")
-        if photo and photo.filename and session.get("rol") == "administrador": api_call("POST", f"usuarios/{me['id']}/foto", files={"archivo": (photo.filename, photo.stream, photo.mimetype)})
+        if photo and photo.filename: api_call("POST", "auth/me/foto", files={"archivo": (photo.filename, photo.stream, photo.mimetype)})
         session["nombre"] = session["nombre_completo"] = f"{me['nombres']} {me['apellidos']}".strip()
         session["foto_perfil"] = me.get("foto_url")
         flash("Perfil actualizado", "success")
@@ -306,6 +319,19 @@ def asset_media(id_activo, kind):
     return Response(content, mimetype="image/png" if kind == "qr" else "image/jpeg")
 
 
+@app.get("/media/usuarios/<int:user_id>/foto")
+@login_required
+def profile_photo(user_id):
+    try:
+        path = "auth/me/foto" if user_id == session.get("user_id") else f"usuarios/{user_id}/foto"
+        return Response(api_call("GET", path), mimetype="image/jpeg")
+    except ApiError as error:
+        if error.status_code == 404:
+            with open(os.path.join(app.static_folder, "img_personas", "default.jpg"), "rb") as image:
+                return Response(image.read(), mimetype="image/jpeg")
+        raise
+
+
 @app.get("/escanear_activo")
 @login_required
 def escanear_activo(): return render_template("escanear.html")
@@ -320,41 +346,65 @@ def api_activos(): return jsonify(api_call("GET", "activos?limit=500"))
 @login_required
 def api_buscar_activo():
     term = request.args.get("q", "").strip()
-    assets = api_call("GET", f"activos?buscar={term}&limit=20")
-    exact = next((a for a in assets if a["folio"].lower() == term.lower() or a["codigo_qr"].lower() == term.lower()), None)
-    return jsonify({"encontrado": bool(exact), "activo": exact, "resultados": assets})
+    _, names = building_map()
+    match = re.fullmatch(r"ACT-0*(\d+)", term, re.IGNORECASE)
+    if match:
+        try: exact = api_call("GET", f"activos/{int(match.group(1))}")
+        except ApiError as error:
+            if error.status_code == 404: return jsonify({"success": False, "message": "Activo no encontrado"})
+            raise
+    else:
+        assets = api_call("GET", f"activos?buscar={term}&limit=20")
+        exact = next((a for a in assets if a["codigo_qr"].lower() == term.lower() or a["nombre"].lower() == term.lower()), None)
+    return jsonify({"success": bool(exact), "activo": asset_web(exact, names) if exact else None,
+                    "message": None if exact else "Activo no encontrado"})
 
 
 @app.get("/api/buscar_sugerencias")
 @login_required
-def api_buscar_sugerencias(): return jsonify(api_call("GET", f"activos?buscar={request.args.get('q','')}&limit=8"))
+def api_buscar_sugerencias():
+    _, names = building_map(); rows = api_call("GET", f"activos?buscar={request.args.get('q','')}&limit=8")
+    return jsonify({"success": True, "resultados": [asset_web(row, names) for row in rows]})
 
 
 @app.get("/api/activos_recientes")
 @login_required
 def api_activos_recientes():
     rows = api_call("GET", f"activos?limit={request.args.get('limite', 5)}")
-    return jsonify(sorted(rows, key=lambda x: x["creado_en"], reverse=True))
+    _, names = building_map()
+    return jsonify({"activos": [asset_web(row, names) for row in sorted(rows, key=lambda x: x["creado_en"], reverse=True)]})
 
 
 @app.get("/historial_movimientos")
 @admin_required
 def historial_movimientos():
     buildings, _ = building_map(); users = api_call("GET", "usuarios")
-    return render_template("historial_movimientos.html", historial=[], edificios=[(b["id"], b["nombre"]) for b in buildings], usuarios=[user_tuple(u) for u in users])
+    rows = api_call("GET", "movimientos?limit=1000")
+    labels = {"alta": "Alta de activo", "edicion": "Edición de activo", "retiro": "Retiro de activo"}
+    history = [(m["id"], m["editor"], m["activo"], m["creado_en"][:10],
+                datetime.fromisoformat(m["creado_en"].replace("Z", "+00:00")).strftime("%H:%M"), labels.get(m["accion"], m["resumen"])) for m in rows]
+    return render_template("historial_movimientos.html", historial=history, edificios=[(b["id"], b["nombre"]) for b in buildings], usuarios=[user_tuple(u) for u in users])
 
 
 @app.get("/historial_movimientos/usuario")
 @login_required
 def historial_movimientos_usuario():
     buildings, _ = building_map()
-    return render_template("historial_movimientos_usuario.html", historial=[], edificios=[(b["id"], b["nombre"]) for b in buildings], usuarios=[])
+    rows = api_call("GET", "movimientos?limit=1000")
+    labels = {"alta": "Alta de activo", "edicion": "Edición de activo", "retiro": "Retiro de activo"}
+    history = [(m["id"], m["editor"], m["activo"], m["creado_en"][:10],
+                datetime.fromisoformat(m["creado_en"].replace("Z", "+00:00")).strftime("%H:%M"), labels.get(m["accion"], m["resumen"])) for m in rows]
+    return render_template("historial_movimientos_usuario.html", historial=history, edificios=[(b["id"], b["nombre"]) for b in buildings], usuarios=[])
 
 
 @app.get("/api/detalle_historial/<int:id_historial>")
 @app.get("/api/detalle_historial/<int:id_historial>/usuario")
 @login_required
-def api_detalle_historial(id_historial): return jsonify([])
+def api_detalle_historial(id_historial):
+    row = api_call("GET", f"movimientos/{id_historial}")
+    moment = datetime.fromisoformat(row["creado_en"].replace("Z", "+00:00"))
+    return jsonify({"success": True, "id_historial": row["id"], "fecha": moment.strftime("%Y-%m-%d"),
+                    "hora": moment.strftime("%H:%M"), "usuario": row["editor"], "detalles": row["detalles"]})
 
 
 @app.route("/api/validar_correo", methods=["GET", "POST"])
@@ -376,8 +426,14 @@ def stats_data():
 @login_required
 def dashboard_stats():
     assets, audits, buildings, _ = stats_data()
-    return jsonify({"total_activos": len(assets), "total_edificios": len(buildings), "total_auditorias": len(audits),
-                    "activos_hoy": sum(a["creado_en"][:10] == datetime.now(timezone.utc).date().isoformat() for a in assets)})
+    users = api_call("GET", "usuarios") if session.get("rol") == "administrador" else []
+    movements = api_call("GET", "movimientos?limit=1000")
+    oldest = min(assets, key=lambda a: a["creado_en"], default=None)
+    return jsonify({"activos": len([a for a in assets if a.get("activo")]), "usuarios": len(users),
+                    "administradores": sum(u["rol"] == "administrador" for u in users),
+                    "movimientos": len(movements), "activo_mas_antiguo": oldest["nombre"] if oldest else "Ninguno",
+                    "fecha_mas_antigua": oldest["creado_en"][:10] if oldest else None,
+                    "total_edificios": len(buildings), "total_auditorias": len(audits)})
 
 
 @app.get("/api/usuarios_stats")
@@ -389,34 +445,104 @@ def usuarios_stats(): return jsonify({"total": len(api_call("GET", "usuarios"))}
 @login_required
 def api_activos_por_edificio():
     assets, _, buildings, names = stats_data(); counts = Counter(names.get(a.get("edificio_id"), "Sin edificio") for a in assets)
-    return jsonify([{"edificio": name, "cantidad": count} for name, count in counts.items()])
+    labels = list(counts); values = [counts[label] for label in labels]; total = sum(values) or 1
+    return jsonify({"edificios": labels, "cantidades": values,
+                    "porcentajes": [round(value * 100 / total, 1) for value in values]})
 
 
 @app.get("/api/activos_por_fecha")
+@login_required
+def assets_by_date():
+    assets, _, buildings, _ = stats_data(); selected = request.args.get("edificio_id")
+    if selected and selected != "todos": assets = [a for a in assets if a.get("edificio_id") == int(selected)]
+    counts = Counter(a["creado_en"][:10] for a in assets)
+    periods = sorted(counts)
+    return jsonify({"periodos": periods, "cantidades": [counts[p] for p in periods],
+                    "edificios": [{"id": b["id"], "nombre": b["nombre"]} for b in buildings]})
+
+
 @app.get("/api/activos_por_usuario_semana")
+@login_required
+def assets_by_user_week():
+    rows = [r for r in api_call("GET", "movimientos?limit=1000") if r["accion"] == "alta"]
+    selected = request.args.get("usuario_id")
+    if selected and selected != "todos": rows = [r for r in rows if r.get("usuario_id") == int(selected)]
+    users = api_call("GET", "usuarios") if session.get("rol") == "administrador" else []
+    counts = Counter(datetime.fromisoformat(r["creado_en"].replace("Z", "+00:00")).date().isoformat() for r in rows)
+    editor_counts = Counter(r["editor"] for r in rows); top = editor_counts.most_common(1)
+    weeks = sorted(counts)
+    return jsonify({"semanas": weeks, "cantidades": [counts[w] for w in weeks], "total_activos": len(rows),
+                    "top_usuario": top[0][0] if top else "—", "top_cantidad": top[0][1] if top else 0,
+                    "usuarios": [{"id": u["id"], "nombre": f"{u['nombres']} {u['apellidos']}".strip(), "username": u["username"]} for u in users]})
+
+
 @app.get("/api/movimientos_por_semana")
 @login_required
-def empty_series(): return jsonify([])
+def movements_by_week():
+    rows = api_call("GET", "movimientos?limit=1000"); selected = request.args.get("usuario_id")
+    if selected and selected != "todos": rows = [r for r in rows if r.get("usuario_id") == int(selected)]
+    users = api_call("GET", "usuarios") if session.get("rol") == "administrador" else []
+    counts = Counter(datetime.fromisoformat(r["creado_en"].replace("Z", "+00:00")).date().isoformat() for r in rows)
+    editor_counts = Counter(r["editor"] for r in rows); top = editor_counts.most_common(1); weeks = sorted(counts)
+    return jsonify({"semanas": weeks, "cantidades": [counts[w] for w in weeks], "total_movimientos": len(rows),
+                    "top_usuario": top[0][0] if top else "—", "top_cantidad": top[0][1] if top else 0,
+                    "usuarios": [{"id": u["id"], "nombre": f"{u['nombres']} {u['apellidos']}".strip(), "username": u["username"]} for u in users]})
 
 
 @app.get("/api/stats_usuario/<int:usuario_id>")
 @app.get("/api/stats_movimientos_usuario/<int:usuario_id>")
 @login_required
-def empty_user_stats(usuario_id): return jsonify({"total": 0})
+def empty_user_stats(usuario_id):
+    rows = [r for r in api_call("GET", "movimientos?limit=1000") if r.get("usuario_id") == usuario_id]
+    is_assets = request.path.startswith("/api/stats_usuario/")
+    if is_assets: rows = [r for r in rows if r["accion"] == "alta"]
+    return jsonify({"total_activos" if is_assets else "total_movimientos": len(rows),
+                    "top_semana": rows[0]["creado_en"][:10] if rows else None, "top_cantidad": len(rows)})
+
+
+@app.get("/api/activos_antiguos_stats")
+@login_required
+def old_asset_stats():
+    assets = api_call("GET", "activos?limit=500"); now = datetime.now(timezone.utc)
+    ages = [(now - datetime.fromisoformat(a["creado_en"].replace("Z", "+00:00"))).days for a in assets]
+    return jsonify({"ultimo_mes": sum(d <= 30 for d in ages), "uno_tres_meses": sum(30 < d <= 90 for d in ages),
+                    "tres_seis_meses": sum(90 < d <= 180 for d in ages), "mas_seis_meses": sum(d > 180 for d in ages)})
 
 
 @app.get("/api/movimientos_stats")
-@app.get("/api/activos_antiguos_stats")
 @login_required
-def empty_stats(): return jsonify({"total": 0})
+def movement_stats(): return jsonify({"total": len(api_call("GET", "movimientos?limit=1000"))})
 
 
 @app.get("/api/activos_por_antiguedad")
+@login_required
+def assets_by_age():
+    assets = api_call("GET", "activos?limit=500"); _, names = building_map(); now = datetime.now(timezone.utc)
+    rows = []
+    for asset in sorted(assets, key=lambda a: a["creado_en"]):
+        moment = datetime.fromisoformat(asset["creado_en"].replace("Z", "+00:00"))
+        rows.append({"nombre": asset["nombre"], "fecha": moment.strftime("%Y-%m-%d"), "hora": moment.strftime("%H:%M"),
+                     "edificio": names.get(asset.get("edificio_id"), "Sin edificio"), "ubicacion": asset.get("ubicacion") or "—",
+                     "dias": (now - moment).days, "estado": "Con garantía" if asset.get("garantia") else "Sin garantía"})
+    oldest = rows[0] if rows else None
+    return jsonify({"activos": rows, "total_activos": len(rows), "total_garantias": sum(bool(a.get("garantia")) for a in assets),
+                    "activo_mas_antiguo": oldest["nombre"] if oldest else "—", "fecha_mas_antigua": oldest["fecha"] if oldest else "—"})
+
+
 @app.get("/api/movimientos_recientes")
+@login_required
+def recent_movements():
+    rows = api_call("GET", "movimientos?limit=10")
+    return jsonify([{"activo": row["activo"], "ubicacion": row.get("ubicacion"), "estado": row["accion"],
+                     "fecha": row["creado_en"][:10], "editor": row["editor"]} for row in rows])
+
+
 @app.get("/api/editores_mas_activos")
 @login_required
-def empty_list_stats(): return jsonify([])
-
-
+def active_editors():
+    rows = api_call("GET", "movimientos?limit=1000"); counts = Counter(row["editor"] for row in rows)
+    top = counts.most_common(5); maximum = top[0][1] if top else 1
+    return jsonify({"editores": [name for name, _ in top], "movimientos": [count for _, count in top],
+                    "porcentajes": [round(count * 100 / maximum, 1) for _, count in top]})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=os.getenv("APP_DEBUG", "false").lower() == "true")

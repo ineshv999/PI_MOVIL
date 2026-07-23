@@ -7,6 +7,7 @@ import {
   ScrollView,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -46,6 +47,7 @@ export default function Sidebar({
   activeRoute = 'Dashboard',
   userName = 'Ines',
   userRole = 'ADMIN',
+  profileSource,
   onLogout,
 }) {
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
@@ -131,7 +133,9 @@ export default function Sidebar({
           {/* User */}
           <View style={styles.userRow}>
             <View style={styles.avatar}>
-              <Ionicons name="person" size={18} color={colors.textSecondary} />
+              {profileSource
+                ? <Image source={profileSource} style={styles.avatarImage} />
+                : <Ionicons name="person" size={18} color={colors.textSecondary} />}
             </View>
             <View>
               <Text style={styles.userName}>{userName}</Text>
@@ -224,7 +228,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
   },
+  avatarImage: { width: '100%', height: '100%' },
   userName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   userRole: {
     fontFamily: monospace,
