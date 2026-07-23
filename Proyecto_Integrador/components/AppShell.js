@@ -4,10 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Sidebar from './Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../services/api';
-import { getStoredItem } from '../services/storage';
+import { downloadWithAuth } from '../services/api';
 
 const defaultProfile = require('../assets/default-profile.jpg');
+const blobDataUrl = (blob) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onloadend = () => resolve(reader.result);
+  reader.onerror = reject;
+  reader.readAsDataURL(blob);
+});
 
 const colors = {
   headerBg: '#FFFFFF',
@@ -37,8 +42,12 @@ export default function AppShell({
     let active = true;
     (async () => {
       if (!user?.foto_url) { if (active) setProfileSource(defaultProfile); return; }
-      const token = await getStoredItem('access_token');
-      if (active) setProfileSource({ uri: `${API_BASE_URL}/auth/me/foto`, headers: { Authorization: `Bearer ${token}` } });
+      try {
+        const dataUrl = await blobDataUrl(await downloadWithAuth('/auth/me/foto'));
+        if (active) setProfileSource({ uri: dataUrl });
+      } catch {
+        if (active) setProfileSource(defaultProfile);
+      }
     })();
     return () => { active = false; };
   }, [user?.id, user?.foto_url]);
@@ -54,7 +63,7 @@ export default function AppShell({
           <Ionicons name="menu-outline" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>
-        <Image source={profileSource} style={styles.headerAvatar} onError={() => setProfileSource(defaultProfile)} />
+        <TouchableOpacity onPress={() => navigation?.navigate('EditarPerfil')}><Image source={profileSource} style={styles.headerAvatar} onError={() => setProfileSource(defaultProfile)} /></TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>{children}</KeyboardAvoidingView>
@@ -67,6 +76,7 @@ export default function AppShell({
         userName={userName}
         userRole={userRole}
         profileSource={profileSource}
+        onProfile={() => { setSidebarVisible(false); navigation?.navigate('EditarPerfil'); }}
         onLogout={async () => { await logout(); navigation?.reset({ index: 0, routes: [{ name: 'Login' }] }); }}
       />
     </SafeAreaView>

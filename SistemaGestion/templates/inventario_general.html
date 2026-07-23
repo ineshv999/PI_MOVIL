@@ -150,7 +150,7 @@
             <tbody>
               {% for a in activos %}
               <tr>
-                <td>{{ a[0] }}</td>
+                <td>ACT-{{ '%06d'|format(a[0]) }}</td>
                 <td style="min-width: 150px; max-width: 250px;">
                     <span class="badge b-blue" style="
                         white-space: normal; 
@@ -175,9 +175,9 @@
                 <td> <span class="badge b-green">{{ a[5] }}</span></td>
                 <td>
                   {% if a[6] %}
-                    <img src="{{ url_for('static', filename='img_activos/' + a[6]) }}"
+                    <img src="/{{ a[6] }}"
                          style="max-width:80px; border:1px solid var(--border-dark); border-radius:6px; cursor:pointer;"
-                         onclick="verFoto('{{ url_for('static', filename='img_activos/' + a[6]) }}')">
+                         onclick="verFoto('/{{ a[6] }}')">
                   {% else %}
                     <span class="badge b-blue">SIN FOTO</span>
                   {% endif %}
@@ -310,7 +310,7 @@
     
     <div class="alert alert-error">
       <i class="bi bi-exclamation-triangle-fill"></i>
-      Esta acción es permanente y no puede deshacerse.
+      Puedes retirar el activo conservando su historial o purgar toda su existencia.
       <br><br>
       <strong>Se eliminarán:</strong>
       <ul style="margin-top:8px; margin-left:20px; text-align:left;">
@@ -325,9 +325,10 @@
       <form method="POST" id="deleteActivoForm" style="display:inline;">
         <input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
         <button type="submit" class="btn btn-danger-soft btn-sm">
-          <i class="bi bi-trash"></i> Eliminar definitivamente
+          <i class="bi bi-archive"></i> Retirar y conservar historial
         </button>
       </form>
+      <button type="button" class="btn btn-danger btn-sm" onclick="purgarActivo()"><i class="bi bi-exclamation-triangle"></i> Borrar toda existencia</button>
     </div>
   </div>
 </div>
@@ -521,6 +522,12 @@ function confirmarEliminacionActivo(idActivo, nombreActivo) {
     openModal('deleteActivoModal');
 }
 
+function purgarActivo() {
+    if (!activoAEliminar || !confirm('Se eliminarán el activo, sus fotografías, relaciones de auditoría e historial. ¿Continuar?')) return;
+    document.getElementById('deleteActivoForm').action = `/activos/purgar/${activoAEliminar}`;
+    document.getElementById('deleteActivoForm').submit();
+}
+
 // Función para limpiar filtros
 function limpiarFiltros() {
     document.getElementById('filterNombre').value = '';
@@ -566,7 +573,7 @@ function abrirModalEditarActivo(idActivo, nombre, idEdificio, ubicacion, garanti
     // Foto actual
     const fotoActual = document.getElementById('edit_foto_actual');
     if (foto && foto !== 'None' && foto !== '') {
-        fotoActual.src = "/static/img_activos/" + foto;
+        fotoActual.src = foto.startsWith('/') ? foto : '/' + foto;
         fotoActual.style.display = 'block';
     } else {
         fotoActual.src = "";

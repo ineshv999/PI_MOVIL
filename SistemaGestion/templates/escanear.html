@@ -511,7 +511,7 @@ function mostrarActivo(activo) {
     const fotoPlaceholder = document.getElementById('fotoPlaceholder');
     
     if (activo.foto && activo.foto !== 'None' && activo.foto !== '') {
-        fotoImage.src = "/static/img_activos/" + activo.foto;
+        fotoImage.src = activo.foto.startsWith('/') ? activo.foto : '/' + activo.foto;
         fotoImage.style.display = 'block';
         fotoPlaceholder.style.display = 'none';
     } else {

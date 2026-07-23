@@ -50,7 +50,7 @@
 
 <h3>🖼️ Foto del Activo</h3>
 {% if activo[5] %}
-    <img src="{{ url_for('static', filename='img_activos/' + activo[5]) }}" width="300">
+    <img src="/{{ activo[5] }}" width="300" style="max-width:100%; border-radius:10px; object-fit:contain;">
 {% else %}
     <p>No hay foto registrada</p>
 {% endif %}

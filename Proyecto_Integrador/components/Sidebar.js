@@ -48,6 +48,7 @@ export default function Sidebar({
   userName = 'Ines',
   userRole = 'ADMIN',
   profileSource,
+  onProfile,
   onLogout,
 }) {
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
@@ -131,7 +132,7 @@ export default function Sidebar({
           </View>
 
           {/* User */}
-          <View style={styles.userRow}>
+          <TouchableOpacity style={styles.userRow} onPress={onProfile} activeOpacity={0.75}>
             <View style={styles.avatar}>
               {profileSource
                 ? <Image source={profileSource} style={styles.avatarImage} />
@@ -141,7 +142,7 @@ export default function Sidebar({
               <Text style={styles.userName}>{userName}</Text>
               <Text style={styles.userRole}>// {userRole}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           <Text style={styles.sectionLabel}>// PRINCIPAL</Text>
           <View style={styles.section}>{PRINCIPAL_ITEMS.map(renderItem)}</View>

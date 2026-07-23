@@ -142,7 +142,7 @@
             <tbody>
               {% for a in activos %}
               <tr>
-                <td>{{ a[0] }}</td>
+                <td>ACT-{{ '%06d'|format(a[0]) }}</td>
                 <td><span class="badge b-blue">{{ a[1] }}</span></td>
                 <td>{{ a[2] or '—' }}</td>
                 <td><span class="badge b-ink">{{ a[3] }}</span></td>
@@ -150,9 +150,9 @@
                 <td> <span class="badge b-green">{{ a[5] }}</span></td>
                 <td>
                   {% if a[6] %}
-                    <img src="{{ url_for('static', filename='img_activos/' + a[6]) }}"
+                    <img src="/{{ a[6] }}"
                          style="max-width:80px; border:1px solid var(--border-dark); border-radius:6px; cursor:pointer;"
-                         onclick="verFoto('{{ url_for('static', filename='img_activos/' + a[6]) }}')">
+                         onclick="verFoto('/{{ a[6] }}')">
                   {% else %}
                     <span class="badge b-blue">SIN FOTO</span>
                   {% endif %}
@@ -490,7 +490,7 @@ function abrirModalEditarActivo(idActivo, nombre, idEdificio, ubicacion, garanti
     // Foto actual
     const fotoActual = document.getElementById('edit_foto_actual');
     if (foto) {
-        fotoActual.src = "/static/img_activos/" + foto;
+        fotoActual.src = foto.startsWith('/') ? foto : '/' + foto;
         fotoActual.style.display = 'block';
     } else {
         fotoActual.src = "";

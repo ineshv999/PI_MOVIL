@@ -49,7 +49,7 @@ export default function RegistrarUsuarioScreen({ navigation }) {
   </ScrollView><Modal visible={!!createdUser} transparent animationType="fade"><View style={styles.overlay}><View style={styles.successModal}>
     <View style={styles.successCircle}><Ionicons name="checkmark-circle-outline" size={42} color={colors.accentDark} /></View><Text style={styles.successTag}>REGISTRO EXITOSO</Text>
     <Text style={styles.successTitle}>¡Usuario registrado!</Text><Text style={styles.successText}><Text style={styles.bold}>{createdUser?.nombres} {createdUser?.apellidos}</Text> fue registrado como {{ usuario: 'Usuario', auditor: 'Auditor', administrador: 'Administrador' }[createdUser?.rol] || createdUser?.rol} y ya puede iniciar sesión.</Text>
-    <PrimaryButton title="Aceptar" icon="checkmark-outline" onPress={() => { setCreatedUser(null); setForm(empty); setPhoto(null); navigation.goBack(); }} />
+    <PrimaryButton title="Aceptar" icon="checkmark-outline" onPress={() => { setCreatedUser(null); setForm(empty); setPhoto(null); navigation.navigate('GestionarUsuarios'); }} />
   </View></View></Modal></AppShell>;
 }
 function Field({ label, value, onChange, error, placeholder, keyboardType, secure, box }) { return <View style={[styles.field, box && styles.half]}><Text style={styles.fieldLabel}>{label}</Text><TextInput style={[styles.input, error && styles.invalid]} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.placeholder} keyboardType={keyboardType} secureTextEntry={secure} autoCapitalize={keyboardType === 'email-address' ? 'none' : 'sentences'} />{error && <Text style={styles.error}>{error}</Text>}</View>; }

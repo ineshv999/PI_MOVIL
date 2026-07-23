@@ -282,14 +282,15 @@
     <!-- Advertencia estándar (se muestra cuando NO tiene activos) -->
     <div class="alert alert-error" id="standardWarning">
       <i class="bi bi-exclamation-triangle-fill"></i>
-      Esta acción es permanente y no puede deshacerse.
+      El borrado normal conserva el historial. Usa la purga solamente si deseas eliminar toda existencia.
     </div>
     
     <div class="m-actions">
       <button class="btn btn-outline btn-sm" onclick="closeModal('deleteModal')">Cancelar</button>
       <button class="btn btn-danger-soft btn-sm" id="confirmDeleteBtn">
-        <i class="bi bi-trash"></i> Eliminar definitivamente
+        <i class="bi bi-person-x"></i> Eliminar acceso y conservar historial
       </button>
+      <button class="btn btn-danger btn-sm" id="purgeDeleteBtn"><i class="bi bi-exclamation-triangle"></i> Borrar toda existencia</button>
     </div>
   </div>
 </div>
@@ -314,7 +315,6 @@ function abrirModal(id, user, nombre, rol, puesto, edad, domicilio, foto) {
         fotoActual.src = "";
         fotoActual.style.display = 'none';
     }
-
     openModal('modalEditar');
 }
 
@@ -442,6 +442,12 @@ document.addEventListener('DOMContentLoaded', function() {
             closeModal('deleteModal');
         });
     }
+    document.getElementById('purgeDeleteBtn')?.addEventListener('click', function() {
+        const form = document.getElementById(formularioAEliminar);
+        if (!form || !confirm('Esta purga eliminará toda existencia y no se puede deshacer. ¿Continuar?')) return;
+        form.action = form.action.replace('/usuarios/eliminar/', '/usuarios/purgar/');
+        form.submit();
+    });
     
     // Cerrar modal al hacer clic fuera
     document.querySelectorAll('.modal-overlay').forEach(modal => {

@@ -6,11 +6,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiErrorMessage, endpoints } from '../services/api';
 import AppShell from '../components/AppShell';
+import { useAuth } from '../context/AuthContext';
 import {
   colors,
   PageHeading,
@@ -49,8 +51,10 @@ const assets = [
 ];
 
 export default function InventarioGeneralScreen({ navigation }) {
+  const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
   const [remoteAssets, setRemoteAssets] = useState([]);
+  const [pendingDelete, setPendingDelete] = useState(null); const [deleting, setDeleting] = useState(false);
   const load = useCallback(async () => {
     try {
       const [data, buildings] = await Promise.all([endpoints.assets(), endpoints.buildings()]);
@@ -60,6 +64,7 @@ export default function InventarioGeneralScreen({ navigation }) {
     } catch (error) { Alert.alert('No fue posible cargar inventario', apiErrorMessage(error)); }
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  const removeAsset = async (purge) => { if (!pendingDelete) return; try { setDeleting(true); await (purge ? endpoints.purgeAsset(pendingDelete.id) : endpoints.deleteAsset(pendingDelete.id)); setPendingDelete(null); await load(); } catch (e) { Alert.alert(purge ? 'No fue posible borrar toda la existencia' : 'No fue posible retirar', apiErrorMessage(e)); } finally { setDeleting(false); } };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -121,9 +126,16 @@ export default function InventarioGeneralScreen({ navigation }) {
               <Text style={styles.viewText}>Consultar activo</Text>
               <Ionicons name="arrow-forward" size={17} color={colors.blue} />
             </TouchableOpacity>
+            {isAdmin && <TouchableOpacity style={styles.deleteButton} onPress={() => setPendingDelete(asset)}><Ionicons name="trash-outline" size={17} color={colors.danger} /><Text style={styles.deleteText}>Eliminar activo</Text></TouchableOpacity>}
           </Card>
         ))}
-      </ScrollView>
+      </ScrollView><Modal visible={!!pendingDelete} transparent animationType="fade" onRequestClose={() => !deleting && setPendingDelete(null)}><View style={styles.overlay}><View style={styles.modalCard}>
+        <View style={styles.warningCircle}><Ionicons name="warning-outline" size={42} color={colors.danger} /></View><Text style={styles.modalTitle}>Eliminar activo</Text>
+        <Text style={styles.modalText}><Text style={styles.bold}>{pendingDelete?.nombre}</Text>{'\n'}Retirar conserva el historial. Borrar toda existencia elimina fotografía, revisiones de auditoría e historial y no se puede deshacer.</Text>
+        <TouchableOpacity disabled={deleting} style={styles.safeDelete} onPress={() => removeAsset(false)}><Ionicons name="archive-outline" size={20} color={colors.danger} /><Text style={styles.safeText}>{deleting ? 'Procesando...' : 'Retirar y conservar historial'}</Text></TouchableOpacity>
+        <TouchableOpacity disabled={deleting} style={styles.purgeButton} onPress={() => removeAsset(true)}><Ionicons name="trash-outline" size={20} color="#fff" /><Text style={styles.purgeText}>Borrar toda existencia</Text></TouchableOpacity>
+        <TouchableOpacity disabled={deleting} style={styles.cancelButton} onPress={() => setPendingDelete(null)}><Ionicons name="arrow-back" size={20} color={colors.textSecondary} /><Text style={styles.cancelText}>Regresar</Text></TouchableOpacity>
+      </View></View></Modal>
     </AppShell>
   );
 }
@@ -191,4 +203,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
+  deleteButton: { minHeight: 41, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderWidth: 1, borderColor: '#F3C6C6', borderRadius: 9, marginTop: 8, backgroundColor: colors.dangerSoft }, deleteText: { color: colors.danger, fontSize: 12, fontWeight: '800' },
+  overlay: { flex: 1, backgroundColor: 'rgba(8,15,13,.68)', alignItems: 'center', justifyContent: 'center', padding: 20 }, modalCard: { width: '100%', maxWidth: 610, backgroundColor: '#fff', borderRadius: 24, padding: 28, alignItems: 'center' }, warningCircle: { width: 76, height: 76, borderRadius: 38, backgroundColor: colors.dangerSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }, modalTitle: { color: colors.textPrimary, fontSize: 27, fontWeight: '900', marginBottom: 14 }, modalText: { color: colors.textSecondary, fontSize: 15, lineHeight: 23, textAlign: 'center', marginBottom: 24 }, bold: { color: colors.textPrimary, fontWeight: '900' }, safeDelete: { width: '100%', minHeight: 58, borderWidth: 1, borderColor: '#F3C6C6', borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 }, safeText: { color: colors.danger, fontWeight: '900' }, purgeButton: { width: '100%', minHeight: 60, borderRadius: 14, backgroundColor: colors.danger, marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 }, purgeText: { color: '#fff', fontWeight: '900' }, cancelButton: { width: '100%', minHeight: 56, borderWidth: 1, borderColor: colors.border, borderRadius: 14, marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 }, cancelText: { color: colors.textSecondary, fontWeight: '800' },
 });

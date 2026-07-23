@@ -19,7 +19,7 @@ export default function GestionarUsuariosScreen({ navigation }) {
       setUsers((await endpoints.users()).map((item) => ({
         ...item,
         name: `${item.nombres} ${item.apellidos}`,
-        role: item.rol === 'administrador' ? 'Administrador' : 'Auditor',
+        role: ({ administrador: 'Administrador', auditor: 'Auditor', usuario: 'Usuario' })[item.rol] || item.rol,
         status: item.activo ? 'Activo' : 'Inactivo',
       })));
     } catch (error) { Alert.alert('No fue posible cargar usuarios', apiErrorMessage(error)); }
@@ -31,11 +31,11 @@ export default function GestionarUsuariosScreen({ navigation }) {
     return q ? users.filter((item) => `${item.name} ${item.username} ${item.role}`.toLowerCase().includes(q)) : users;
   }, [search, users]);
 
-  const remove = async () => {
+  const remove = async (purge = false) => {
     if (!pendingDelete || !isAdmin || pendingDelete.id === currentUser?.id) return;
     try {
       setDeleting(true);
-      await endpoints.deleteUser(pendingDelete.id);
+      await (purge ? endpoints.purgeUser(pendingDelete.id) : endpoints.deleteUser(pendingDelete.id));
       setPendingDelete(null);
       await load();
     } catch (error) { Alert.alert('No fue posible eliminar el acceso', apiErrorMessage(error)); }
@@ -61,8 +61,9 @@ export default function GestionarUsuariosScreen({ navigation }) {
       <View style={styles.overlay}><View style={styles.modalCard}>
         <View style={styles.warningCircle}><Ionicons name="warning-outline" size={42} color={colors.danger} /></View>
         <Text style={styles.modalTitle}>Confirmar eliminación</Text>
-        <Text style={styles.modalText}>Se eliminará definitivamente la cuenta de <Text style={styles.bold}>{pendingDelete?.name}</Text> y ya no aparecerá en usuarios. La operación será rechazada si existen auditorías históricas que dependan de esta cuenta.</Text>
-        <TouchableOpacity disabled={deleting} style={styles.confirmDelete} onPress={remove}><Ionicons name="trash-outline" size={21} color="#fff" /><Text style={styles.confirmText}>{deleting ? 'Eliminando acceso...' : 'Eliminar acceso definitivamente'}</Text></TouchableOpacity>
+        <Text style={styles.modalText}>Eliminar acceso oculta la cuenta y bloquea el inicio de sesión, conservando auditorías e historial. La purga elimina toda referencia y no se puede deshacer.</Text>
+        <TouchableOpacity disabled={deleting} style={styles.safeDelete} onPress={() => remove(false)}><Ionicons name="person-remove-outline" size={21} color={colors.danger} /><Text style={styles.safeDeleteText}>{deleting ? 'Procesando...' : 'Eliminar acceso y conservar historial'}</Text></TouchableOpacity>
+        <TouchableOpacity disabled={deleting} style={styles.confirmDelete} onPress={() => remove(true)}><Ionicons name="warning-outline" size={21} color="#fff" /><Text style={styles.confirmText}>Borrar toda existencia</Text></TouchableOpacity>
         <TouchableOpacity disabled={deleting} style={styles.cancelButton} onPress={() => setPendingDelete(null)}><Ionicons name="arrow-back" size={21} color={colors.textSecondary} /><Text style={styles.cancelText}>Regresar</Text></TouchableOpacity>
       </View></View>
     </Modal>
@@ -89,6 +90,7 @@ const styles = StyleSheet.create({
   modalText: { color: '#667085', fontSize: 16, lineHeight: 24, textAlign: 'center', marginBottom: 26 },
   bold: { color: '#111827', fontWeight: '800' },
   confirmDelete: { width: '100%', minHeight: 62, borderRadius: 14, backgroundColor: colors.danger, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  safeDelete: { width: '100%', minHeight: 58, borderRadius: 14, borderWidth: 1, borderColor: '#F3C6C6', marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }, safeDeleteText: { color: colors.danger, fontSize: 14, fontWeight: '900' },
   confirmText: { color: '#fff', fontSize: 16, fontWeight: '900' },
   cancelButton: { width: '100%', minHeight: 58, borderWidth: 1, borderColor: '#D9DEDB', borderRadius: 14, marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   cancelText: { color: '#667085', fontSize: 16, fontWeight: '800' },

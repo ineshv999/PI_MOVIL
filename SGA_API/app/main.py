@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from starlette.responses import Response
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 
 from app.core.config import get_settings
 from app.core.observability import SecurityAndMetricsMiddleware
@@ -32,6 +33,11 @@ app.include_router(catalogos.router, prefix=settings.api_v1_prefix)
 app.include_router(usuarios.router, prefix=settings.api_v1_prefix)
 app.include_router(auditorias.router, prefix=settings.api_v1_prefix)
 app.include_router(movimientos.router, prefix=settings.api_v1_prefix)
+
+
+@app.exception_handler(Exception)
+async def unexpected_error(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=500, content={"detail": "Ocurrió un error interno. La operación no fue aplicada."})
 
 
 @app.get("/metrics", include_in_schema=False)

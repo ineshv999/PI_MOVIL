@@ -43,7 +43,13 @@ export function AuthProvider({ children }) {
     await clearSession();
   }, [clearSession]);
 
-  const value = useMemo(() => ({ user, loading, login, logout, isAdmin: user?.rol === 'administrador' }), [user, loading, login, logout]);
+  const refreshUser = useCallback(async () => {
+    const current = await endpoints.me();
+    await setStoredItem('user', JSON.stringify(current)); setUser(current);
+    return current;
+  }, []);
+
+  const value = useMemo(() => ({ user, loading, login, logout, refreshUser, isAdmin: user?.rol === 'administrador' }), [user, loading, login, logout, refreshUser]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

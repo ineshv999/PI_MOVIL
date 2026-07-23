@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 import qrcode
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -138,7 +138,13 @@ async def upload_asset_photo(asset_id: int, db: DbSession, user: Annotated[Usuar
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
     folder = Path("uploads/activos"); folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
     previous = asset.foto_url; asset.foto_url = str(path)
-    add_history(db, user, asset, "edicion", "Fotografia actualizada", [("Fotografia", previous, "Nueva fotografia")])
+    latest = db.scalar(select(HistorialMovimiento).where(HistorialMovimiento.activo_id == asset.id)
+                       .order_by(HistorialMovimiento.creado_en.desc()).limit(1))
+    if previous is None and latest and latest.accion == "alta":
+        db.add(DetalleHistorial(historial_id=latest.id, campo="Fotografia",
+                                valor_anterior=None, valor_actual="Fotografia registrada"))
+    else:
+        add_history(db, user, asset, "edicion", "Fotografia actualizada", [("Fotografia", previous, "Nueva fotografia")])
     db.commit(); db.refresh(asset); return asset_response(asset)
 
 
@@ -150,3 +156,22 @@ def deactivate_asset(asset_id: int, db: DbSession, user: Annotated[Usuario, Depe
     asset.activo = False
     add_history(db, user, asset, "retiro", "Activo retirado del inventario", [("Activo", True, False)])
     db.commit()
+
+
+@router.delete("/{asset_id}/purga", status_code=204)
+def purge_asset(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(require_admin)]) -> None:
+    asset = db.get(Activo, asset_id)
+    if not asset: raise HTTPException(status_code=404, detail="Activo no encontrado")
+    photo_path = Path(asset.foto_url) if asset.foto_url else None
+    from app.models import DetalleAuditoria, Evidencia
+    detail_ids = list(db.scalars(select(DetalleAuditoria.id).where(DetalleAuditoria.activo_id == asset.id)).all())
+    evidence_paths = [Path(path) for path in db.scalars(select(Evidencia.ruta).where(Evidencia.detalle_id.in_(detail_ids))).all()] if detail_ids else []
+    if detail_ids:
+        db.execute(delete(Evidencia).where(Evidencia.detalle_id.in_(detail_ids)))
+        db.execute(delete(DetalleAuditoria).where(DetalleAuditoria.id.in_(detail_ids)))
+    db.execute(delete(HistorialMovimiento).where(HistorialMovimiento.activo_id == asset.id))
+    db.execute(delete(Activo).where(Activo.id == asset.id)); db.commit()
+    for path in [photo_path, *evidence_paths]:
+        if path:
+            try: path.unlink(missing_ok=True)
+            except OSError: pass

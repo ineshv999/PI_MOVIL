@@ -79,7 +79,8 @@ def building_map():
 def asset_tuple(asset, buildings):
     created = datetime.fromisoformat(asset["creado_en"].replace("Z", "+00:00"))
     return (asset["id"], asset["nombre"], buildings.get(asset.get("edificio_id"), "Sin edificio"),
-            asset.get("ubicacion"), asset.get("garantia"), created.strftime("%Y-%m-%d"), None,
+            asset.get("ubicacion"), asset.get("garantia"), created.strftime("%Y-%m-%d"),
+            f"media/activos/{asset['id']}/foto" if asset.get("foto_url") else None,
             f"media/activos/{asset['id']}/qr", asset.get("descripcion"), asset.get("edificio_id"))
 
 
@@ -90,7 +91,8 @@ def asset_web(asset, buildings):
             "edificio": buildings.get(asset.get("edificio_id"), "Sin edificio"),
             "ubicacion": asset.get("ubicacion"), "garantia": asset.get("garantia"),
             "observaciones": asset.get("descripcion"), "fecha": created.strftime("%Y-%m-%d"),
-            "estado": "Activo" if asset.get("activo") else "Retirado", "foto": None,
+            "estado": "Activo" if asset.get("activo") else "Retirado",
+            "foto": f"media/activos/{asset['id']}/foto" if asset.get("foto_url") else None,
             "qr": f"media/activos/{asset['id']}/qr", "usuario_nombre": "—",
             "usuario_username": "—", "usuario_rol": "—"}
 
@@ -185,7 +187,15 @@ def editar_usuario():
 @admin_required
 def eliminar_usuario(id_usuario):
     api_call("DELETE", f"usuarios/{id_usuario}")
-    flash("Usuario eliminado definitivamente", "success")
+    flash("Usuario eliminado del acceso; su historial se conserva", "success")
+    return redirect(url_for("editar_usuario"))
+
+
+@app.post("/usuarios/purgar/<int:id_usuario>")
+@admin_required
+def purgar_usuario(id_usuario):
+    api_call("DELETE", f"usuarios/{id_usuario}/purga")
+    flash("Toda la existencia del usuario fue eliminada", "success")
     return redirect(url_for("editar_usuario"))
 
 
@@ -208,12 +218,13 @@ def profile_page(template):
             payload["password"] = password
         me = api_call("PATCH", "auth/me", json=payload)
         photo = request.files.get("foto")
-        if photo and photo.filename: api_call("POST", "auth/me/foto", files={"archivo": (photo.filename, photo.stream, photo.mimetype)})
+        if photo and photo.filename:
+            me = api_call("POST", "auth/me/foto", files={"archivo": (photo.filename, photo.stream, photo.mimetype)})
         session["nombre"] = session["nombre_completo"] = f"{me['nombres']} {me['apellidos']}".strip()
         session["foto_perfil"] = me.get("foto_url")
         flash("Perfil actualizado", "success")
     full = f"{me['nombres']} {me['apellidos']}".strip()
-    data = (me["username"], full, me["rol"].capitalize(), me.get("puesto"), me.get("edad"), me.get("domicilio"), None)
+    data = (me["username"], full, me["rol"].capitalize(), me.get("puesto"), me.get("edad"), me.get("domicilio"), me.get("foto_url"))
     return render_template(template, usuario=data)
 
 
@@ -296,6 +307,11 @@ def editar_activo_usuario():
 def eliminar_activo(id_activo): api_call("DELETE", f"activos/{id_activo}"); flash("Activo retirado del inventario", "success"); return redirect(url_for("inventario_general"))
 
 
+@app.post("/activos/purgar/<int:id_activo>")
+@admin_required
+def purgar_activo(id_activo): api_call("DELETE", f"activos/{id_activo}/purga"); flash("Toda la existencia del activo fue eliminada", "success"); return redirect(url_for("inventario_general"))
+
+
 @app.post("/activos/eliminar/<int:id_activo>/usuario")
 @login_required
 def eliminar_activo_usuario(id_activo): return eliminar_activo(id_activo)
@@ -307,7 +323,8 @@ def ver_activo(id_activo):
     asset = api_call("GET", f"activos/{id_activo}")
     created = datetime.fromisoformat(asset["creado_en"].replace("Z", "+00:00"))
     data = (asset["nombre"], asset.get("ubicacion"), asset.get("garantia"), created.strftime("%Y-%m-%d"),
-            created.strftime("%H:%M"), None, f"media/activos/{id_activo}/qr", asset.get("descripcion"))
+            created.strftime("%H:%M"), f"media/activos/{id_activo}/foto" if asset.get("foto_url") else None,
+            f"media/activos/{id_activo}/qr", asset.get("descripcion"))
     return render_template("ver_activo.html", activo=data, historial=[])
 
 
@@ -316,7 +333,11 @@ def ver_activo(id_activo):
 def asset_media(id_activo, kind):
     if kind not in {"qr", "foto"}: return "No encontrado", 404
     content = api_call("GET", f"activos/{id_activo}/{kind}")
-    return Response(content, mimetype="image/png" if kind == "qr" else "image/jpeg")
+    if kind == "qr": return Response(content, mimetype="image/png")
+    asset = api_call("GET", f"activos/{id_activo}")
+    extension = os.path.splitext(asset.get("foto_url") or "")[1].lower()
+    mime = {".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}.get(extension, "image/jpeg")
+    return Response(content, mimetype=mime)
 
 
 @app.get("/media/usuarios/<int:user_id>/foto")
@@ -532,7 +553,7 @@ def assets_by_age():
 @app.get("/api/movimientos_recientes")
 @login_required
 def recent_movements():
-    rows = api_call("GET", "movimientos?limit=10")
+    rows = api_call("GET", "movimientos?limit=3")
     return jsonify([{"activo": row["activo"], "ubicacion": row.get("ubicacion"), "estado": row["accion"],
                      "fecha": row["creado_en"][:10], "editor": row["editor"]} for row in rows])
 

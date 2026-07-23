@@ -21,6 +21,7 @@ import DetalleAuditoriaScreen from './screens/DetalleAuditoriaScreen';
 import RevisarActivoScreen from './screens/RevisarActivoScreen';
 import ConsultarActivoScreen from './screens/ConsultarActivoScreen';
 import ResultadosAuditoriaScreen from './screens/ResultadosAuditoriaScreen';
+import EditarPerfilScreen from './screens/EditarPerfilScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 const Stack = createNativeStackNavigator();
@@ -120,6 +121,7 @@ function AppNavigator() {
           name="ResultadosAuditoria"
           component={ResultadosAuditoriaScreen}
         />
+        <Stack.Screen name="EditarPerfil" component={EditarPerfilScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

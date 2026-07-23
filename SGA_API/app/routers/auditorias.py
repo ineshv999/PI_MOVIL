@@ -200,5 +200,15 @@ def cancel_audit(audit_id: int, data: CancelarAuditoria, db: DbSession,
 
 @router.delete("/{audit_id}", status_code=204)
 def delete_audit(audit_id: int, db: DbSession, admin: Annotated[Usuario, Depends(require_admin)]) -> None:
-    audit = get_audit(audit_id, db)
+    audit = get_audit(audit_id, db, True)
+    evidence_paths = [Path(evidence.ruta) for detail in audit.detalles for evidence in detail.evidencias]
     db.delete(audit); db.commit()
+    for path in evidence_paths:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+    try:
+        (Path(settings.evidence_directory) / str(audit_id)).rmdir()
+    except OSError:
+        pass
