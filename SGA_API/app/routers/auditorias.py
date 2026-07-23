@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -90,7 +91,18 @@ def create_audit(data: AuditoriaCrear, db: DbSession, admin: Annotated[Usuario, 
 def audit_detail(audit_id: int, db: DbSession, user: Annotated[Usuario, Depends(current_user)]) -> ResultadoAuditoria:
     audit = get_audit(audit_id, db, True); authorized(audit, user)
     summary = response(audit, db).model_dump()
-    return ResultadoAuditoria(**summary, detalles=[DetalleRespuesta.model_validate(d) for d in audit.detalles])
+    details = []
+    for item in audit.detalles:
+        asset = db.get(Activo, item.activo_id)
+        details.append(DetalleRespuesta.model_validate({
+            **{c.name: getattr(item, c.name) for c in item.__table__.columns},
+            "evidencias": item.evidencias,
+            "activo_nombre": asset.nombre if asset else "Activo eliminado",
+            "activo_folio": f"ACT-{item.activo_id:06d}",
+            "activo_ubicacion": asset.ubicacion if asset else None,
+            "activo_foto_url": asset.foto_url if asset else None,
+        }))
+    return ResultadoAuditoria(**summary, detalles=details)
 
 
 @router.patch("/{audit_id}", response_model=AuditoriaRespuesta)
@@ -105,7 +117,7 @@ def update_audit(audit_id: int, data: AuditoriaActualizar, db: DbSession,
 
 @router.post("/{audit_id}/activos", response_model=AuditoriaRespuesta)
 def assign_assets(audit_id: int, data: AsignarActivos, db: DbSession,
-                  admin: Annotated[Usuario, Depends(require_admin)]) -> AuditoriaRespuesta:
+                  user: Annotated[Usuario, Depends(current_user)]) -> AuditoriaRespuesta:
     audit = get_audit(audit_id, db, True)
     if audit.estado not in {"programada", "en_progreso"}: raise HTTPException(status_code=409, detail="La auditoria esta cerrada")
     add_assets(audit, data.activo_ids, db)
@@ -113,6 +125,18 @@ def assign_assets(audit_id: int, data: AsignarActivos, db: DbSession,
     except IntegrityError as exc:
         db.rollback(); raise HTTPException(status_code=409, detail="Activo ya asignado") from exc
     return response(audit, db)
+
+
+@router.get("/{audit_id}/evidencias/{evidence_id}")
+def get_evidence(audit_id: int, evidence_id: int, db: DbSession,
+                 user: Annotated[Usuario, Depends(current_user)]) -> Response:
+    audit = get_audit(audit_id, db); authorized(audit, user)
+    evidence = db.scalar(select(Evidencia).join(DetalleAuditoria).where(
+        Evidencia.id == evidence_id, DetalleAuditoria.auditoria_id == audit_id))
+    if not evidence: raise HTTPException(status_code=404, detail="Evidencia no encontrada")
+    path = Path(evidence.ruta)
+    if not path.is_file(): raise HTTPException(status_code=404, detail="La evidencia no está disponible")
+    return Response(path.read_bytes(), media_type=evidence.tipo_mime)
 
 
 @router.delete("/{audit_id}/activos/{asset_id}", status_code=204)

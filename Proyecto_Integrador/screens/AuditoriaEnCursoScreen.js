@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiErrorMessage, endpoints } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import AppShell from '../components/AppShell';
 import {
   colors,
@@ -57,6 +58,7 @@ const defaultAssets = [
 ];
 
 export default function AuditoriaEnCursoScreen({ navigation, route }) {
+  const { isAdmin } = useAuth();
   const audit = route.params?.auditoria || defaultAudit;
   const [assets, setAssets] = useState([]);
   const [search, setSearch] = useState('');
@@ -152,13 +154,13 @@ export default function AuditoriaEnCursoScreen({ navigation, route }) {
             <Text style={styles.actionTextDanger}>Cancelar auditoría</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {isAdmin && <TouchableOpacity
             style={styles.actionButtonDanger}
             onPress={() => setShowDelete(true)}
           >
             <Ionicons name="trash-outline" size={17} color={colors.danger} />
             <Text style={styles.actionTextDanger}>Eliminar auditoría</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
         </View>
 
         <Card>

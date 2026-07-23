@@ -59,7 +59,9 @@ def register(data: RegistroUsuario, db: DbSession) -> UsuarioRespuesta:
 @router.post("/login", response_model=TokenRespuesta)
 def login(data: LoginUsuario, db: DbSession, request: Request) -> TokenRespuesta:
     login_limiter.check(request)
-    user = db.scalar(select(Usuario).where(Usuario.username == data.username.lower()))
+    login_value = data.username.lower()
+    user = db.scalar(select(Usuario).join(Persona).where(
+        (Usuario.username == login_value) | (Persona.correo == login_value)))
     if not user or not user.activo or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas")
     return issue_tokens(user, db)

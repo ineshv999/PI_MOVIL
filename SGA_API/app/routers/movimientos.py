@@ -15,6 +15,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 def serialize(row: HistorialMovimiento, db: Session) -> dict:
     user = db.get(Usuario, row.usuario_id) if row.usuario_id else None
     return {"id": row.id, "activo_id": row.activo_id, "activo": row.activo_nombre,
+            "folio": f"ACT-{row.activo_id:06d}" if row.activo_id else "Activo eliminado",
             "ubicacion": row.ubicacion, "accion": row.accion, "resumen": row.resumen,
             "creado_en": row.creado_en,
             "usuario_id": row.usuario_id,

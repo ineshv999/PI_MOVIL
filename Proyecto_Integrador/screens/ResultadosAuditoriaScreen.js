@@ -1,45 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppShell from '../components/AppShell';
-import { Card, colors, InfoRow, PageHeading, StatusBadge } from '../components/ScreenUI';
-import { apiErrorMessage, endpoints } from '../services/api';
+import { Card, colors, InfoRow, PageHeading, SecondaryButton, StatusBadge } from '../components/ScreenUI';
+import { apiErrorMessage, downloadWithAuth, endpoints } from '../services/api';
 import { HorizontalBarChart } from '../components/AuditCharts';
 
 export default function ResultadosAuditoriaScreen({ navigation, route }) {
-  const id = route.params?.auditoria?.id;
-  const [audit, setAudit] = useState(null);
-  const [building, setBuilding] = useState('Sin edificio');
-  const [statuses, setStatuses] = useState([]);
-  useEffect(() => { Promise.all([endpoints.audit(id), endpoints.buildings(), endpoints.statuses()]).then(([data, buildings, statusData]) => { setAudit(data); setStatuses(statusData); setBuilding(buildings.find((item) => item.id === data.edificio_id)?.nombre || 'Sin edificio'); }).catch((e) => Alert.alert('Error', apiErrorMessage(e))); }, [id]);
+  const id = route.params?.auditoria?.id; const [audit, setAudit] = useState(null); const [building, setBuilding] = useState('Sin edificio'); const [statuses, setStatuses] = useState([]); const [selected, setSelected] = useState(null);
+  useEffect(() => { Promise.all([endpoints.audit(id), endpoints.buildings(), endpoints.statuses()]).then(([data, buildings, statusData]) => { setAudit(data); setStatuses(statusData); setBuilding(buildings.find((b) => b.id === data.edificio_id)?.nombre || 'Sin edificio'); }).catch((e) => Alert.alert('Error', apiErrorMessage(e))); }, [id]);
   if (!audit) return <AppShell navigation={navigation} title="Resultados" activeRoute="Auditorias"><View /></AppShell>;
-  const unchanged = audit.detalles.filter((d) => d.estado_revision === 'revisado' && d.estatus_anterior_id === d.estatus_nuevo_id && !d.tipo_incidencia).length;
-  const palette = ['#16A34A', '#22C55E', '#D97706', '#DC2626', '#6B7280'];
-  const distribution = statuses.map((status, index) => ({ label: status.nombre, value: audit.detalles.filter((row) => row.estado_revision === 'revisado' && row.estatus_nuevo_id === status.id).length, color: palette[index % palette.length] }));
-  return <AppShell navigation={navigation} title="Resultados de Auditoria" activeRoute="Auditorias">
-    <ScrollView contentContainerStyle={styles.content}>
-      <TouchableOpacity style={styles.back} onPress={() => navigation.navigate('Auditorias')}><Ionicons name="arrow-back" size={20} color={colors.textSecondary} /><Text style={styles.backText}>Regresar a auditorías</Text></TouchableOpacity>
-      <PageHeading eyebrow="// REPORTE FINAL" title={audit.titulo} subtitle="Resultados consolidados de la revision fisica." />
-      <StatusBadge status="Completada" />
-      <Card><InfoRow label="DESCRIPCION" value={audit.descripcion || 'Sin descripcion'} />
-        <InfoRow label="RESPONSABLE" value={audit.responsable_nombre} />
-        <InfoRow label="EDIFICIO" value={building} />
-        <InfoRow label="UBICACIÓN / INDICACIONES" value={audit.ubicacion_detalle || 'Sin indicaciones adicionales'} />
-        <InfoRow label="FECHA PROGRAMADA" value={audit.fecha_programada?.slice(0, 10) || 'Sin fecha'} last /></Card>
-      <View style={styles.metrics}>{[
-        ['Total revisados', audit.revisados, colors.blue], ['Sin cambios', unchanged, colors.accentDark], ['Incidencias', audit.incidencias, colors.warning],
-      ].map(([label, value, color]) => <Card key={label} style={styles.metric}><Text style={[styles.value, { color }]}>{value}</Text><Text style={styles.label}>{label}</Text></Card>)}</View>
-      <Card><HorizontalBarChart title="Distribución del estado físico" subtitle="Estado final encontrado en los activos revisados." totalLabel="revisados" items={distribution} /></Card>
-      <Card><Text style={styles.heading}>Detalle de incidencias</Text>
-        {audit.detalles.filter((d) => d.tipo_incidencia).length === 0 ? <Text style={styles.empty}>Sin incidencias registradas.</Text>
-          : audit.detalles.filter((d) => d.tipo_incidencia).map((d) => <View key={d.id} style={styles.incident}>
-            <Text style={styles.incidentTitle}>Activo #{d.activo_id} · {d.tipo_incidencia}</Text><Text style={styles.empty}>{d.observacion}</Text>
-            <Text style={styles.evidence}>{d.evidencias.length} evidencia(s) · {d.registrado_en?.slice(0, 10)}</Text></View>)}</Card>
-    </ScrollView>
-  </AppShell>;
+  const reviewed = audit.detalles.filter((d) => d.estado_revision === 'revisado');
+  const hasChanges = (d) => d.estatus_anterior_id !== d.estatus_nuevo_id || Boolean(d.tipo_incidencia) || Boolean(d.observacion?.trim()) || (d.ubicacion_encontrada && d.ubicacion_encontrada !== d.activo_ubicacion);
+  const unchanged = reviewed.filter((d) => !hasChanges(d)); const changed = reviewed.filter(hasChanges);
+  const palette = ['#16A34A', '#22C55E', '#D97706', '#DC2626', '#6B7280']; const distribution = statuses.map((s, i) => ({ label: s.nombre, value: reviewed.filter((d) => d.estatus_nuevo_id === s.id).length, color: palette[i % palette.length] }));
+  const statusName = (value) => statuses.find((s) => s.id === value)?.nombre || 'Sin estado';
+  return <AppShell navigation={navigation} title="Resultados de auditoría" activeRoute="Auditorias"><ScrollView contentContainerStyle={styles.content}>
+    <TouchableOpacity style={styles.back} onPress={() => navigation.navigate('Auditorias')}><Ionicons name="arrow-back" size={20} color={colors.textSecondary} /><Text style={styles.backText}>Regresar a auditorías</Text></TouchableOpacity>
+    <PageHeading eyebrow="// REPORTE FINAL" title={audit.titulo} subtitle="Resumen de resultados y evidencias de la revisión." /><StatusBadge status={audit.estado === 'cancelada' ? 'Cancelada' : 'Completada'} />
+    <Card><InfoRow label="DESCRIPCIÓN" value={audit.descripcion || 'Sin descripción'} /><InfoRow label="RESPONSABLE" value={audit.responsable_nombre} /><InfoRow label="EDIFICIO" value={building} /><InfoRow label="UBICACIÓN / INDICACIONES" value={audit.ubicacion_detalle || 'Sin indicaciones'} last /></Card>
+    <View style={styles.metrics}>{[['Revisados', reviewed.length, colors.blue], ['Sin cambios', unchanged.length, colors.accentDark], ['Cambios / incidencias', changed.length, colors.warning]].map(([label, value, color]) => <Card key={label} style={styles.metric}><Text style={[styles.value, { color }]}>{value}</Text><Text style={styles.label}>{label}</Text></Card>)}</View>
+    <Card><HorizontalBarChart title="Distribución del estado físico" subtitle="Estado final de los activos revisados." totalLabel="revisados" items={distribution} /></Card>
+    <Card><Text style={styles.heading}>Sin cambios</Text>{unchanged.length === 0 ? <Text style={styles.empty}>No hay activos sin cambios.</Text> : unchanged.map((d) => <View key={d.id} style={styles.simpleRow}><View style={styles.okIcon}><Ionicons name="checkmark" size={17} color={colors.accentDark} /></View><View style={styles.rowBody}><Text style={styles.title}>{d.activo_nombre}</Text><Text style={styles.folio}>{d.activo_folio}</Text></View><StatusBadge status="Sin cambios" /></View>)}</Card>
+    <Card><Text style={styles.heading}>Con cambios o incidencias</Text>{changed.length === 0 ? <Text style={styles.empty}>No se registraron cambios ni incidencias.</Text> : changed.map((d) => <View key={d.id} style={styles.changedCard}><View style={styles.row}><View style={styles.rowBody}><Text style={styles.title}>{d.activo_nombre}</Text><Text style={styles.folio}>{d.activo_folio}</Text></View><StatusBadge status={d.tipo_incidencia ? 'Incidencia' : 'Con cambios'} /></View><Text style={styles.summary}>{d.tipo_incidencia || d.observacion || 'Información modificada durante la revisión'}</Text><TouchableOpacity style={styles.consult} onPress={() => setSelected(d)}><Ionicons name="eye-outline" size={18} color={colors.blue} /><Text style={styles.consultText}>Consultar detalle y evidencia</Text></TouchableOpacity></View>)}</Card>
+  </ScrollView><Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}><View style={styles.overlay}><View style={styles.modalCard}><ScrollView contentContainerStyle={styles.modalContent}>
+    <View style={styles.modalIcon}><Ionicons name="document-text-outline" size={30} color={colors.blue} /></View><Text style={styles.modalTitle}>{selected?.activo_nombre}</Text><Text style={styles.modalFolio}>{selected?.activo_folio}</Text>
+    {selected && <><InfoRow label="UBICACIÓN REGISTRADA" value={selected.activo_ubicacion || 'Sin ubicación'} /><InfoRow label="UBICACIÓN ENCONTRADA" value={selected.ubicacion_encontrada || 'Sin cambio'} /><InfoRow label="ESTADO ANTERIOR" value={statusName(selected.estatus_anterior_id)} /><InfoRow label="ESTADO ENCONTRADO" value={statusName(selected.estatus_nuevo_id)} /><InfoRow label="INCIDENCIA / CAMBIO" value={selected.tipo_incidencia || 'Cambio registrado'} /><InfoRow label="OBSERVACIONES" value={selected.observacion || 'Sin observaciones'} />
+      {selected.activo_foto_url && <><Text style={styles.photoLabel}>FOTOGRAFÍA DEL ACTIVO</Text><AuthImage path={`/activos/${selected.activo_id}/foto`} /></>}
+      {selected.evidencias.length === 0 ? <Text style={styles.noEvidence}>Sin evidencia fotográfica adjunta</Text> : selected.evidencias.map((e) => <View key={e.id}><Text style={styles.photoLabel}>EVIDENCIA · {e.nombre_archivo}</Text><AuthImage path={`/auditorias/${audit.id}/evidencias/${e.id}`} /></View>)}</>}
+    <SecondaryButton title="Cerrar" icon="close-outline" onPress={() => setSelected(null)} />
+  </ScrollView></View></View></Modal></AppShell>;
 }
-const styles = StyleSheet.create({ content: { padding: 20, paddingBottom: 45, gap: 12 }, back: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 6 }, backText: { color: colors.textSecondary, fontSize: 14, fontWeight: '800' }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  metric: { flex: 1, minWidth: 100 }, value: { fontSize: 28, fontWeight: '900' }, label: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
-  heading: { color: colors.textPrimary, fontWeight: '800', fontSize: 15, marginBottom: 12 }, empty: { color: colors.textSecondary, fontSize: 12, lineHeight: 18 },
-  incident: { borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 12 }, incidentTitle: { color: colors.textPrimary, fontWeight: '800', marginBottom: 5 },
-  evidence: { color: colors.label, fontSize: 10, marginTop: 6 } });
+function AuthImage({ path }) { const [uri, setUri] = useState(null); useEffect(() => { let active = true; (async () => { try { const blob = await downloadWithAuth(path); const reader = new FileReader(); reader.onloadend = () => active && setUri(reader.result); reader.readAsDataURL(blob); } catch { if (active) setUri(''); } })(); return () => { active = false; }; }, [path]); return uri ? <Image source={{ uri }} style={styles.photo} resizeMode="contain" /> : <Text style={styles.empty}>{uri === '' ? 'Imagen no disponible' : 'Cargando imagen...'}</Text>; }
+const styles = StyleSheet.create({ content: { padding: 20, paddingBottom: 45, gap: 12 }, back: { flexDirection: 'row', alignItems: 'center', gap: 8 }, backText: { color: colors.textSecondary, fontWeight: '800' }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 }, metric: { flex: 1, minWidth: 95 }, value: { fontSize: 28, fontWeight: '900' }, label: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' }, heading: { color: colors.textPrimary, fontWeight: '900', fontSize: 16, marginBottom: 10 }, empty: { color: colors.textSecondary, fontSize: 12, lineHeight: 18 }, simpleRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, okIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' }, rowBody: { flex: 1 }, title: { color: colors.textPrimary, fontWeight: '900', fontSize: 14 }, folio: { color: colors.blue, fontWeight: '800', fontSize: 11, marginTop: 3 }, changedCard: { borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 14 }, row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, summary: { color: colors.textSecondary, fontSize: 12, marginTop: 8 }, consult: { minHeight: 43, borderWidth: 1, borderColor: '#C9DDFB', backgroundColor: colors.blueSoft, borderRadius: 9, marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 }, consultText: { color: colors.blue, fontWeight: '900', fontSize: 12 }, overlay: { flex: 1, backgroundColor: 'rgba(8,15,13,.7)', justifyContent: 'center', padding: 18 }, modalCard: { maxHeight: '90%', borderRadius: 22, backgroundColor: '#fff', overflow: 'hidden' }, modalContent: { padding: 22 }, modalIcon: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.blueSoft, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' }, modalTitle: { color: colors.textPrimary, fontSize: 21, fontWeight: '900', textAlign: 'center', marginTop: 10 }, modalFolio: { color: colors.blue, fontWeight: '900', textAlign: 'center', marginBottom: 12 }, photoLabel: { color: colors.label, fontSize: 10, fontWeight: '900', marginTop: 12, marginBottom: 7 }, photo: { width: '100%', height: 220, borderRadius: 12, backgroundColor: colors.background }, noEvidence: { color: colors.textSecondary, textAlign: 'center', backgroundColor: colors.background, borderRadius: 10, padding: 14, marginVertical: 12 } });

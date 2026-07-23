@@ -48,6 +48,8 @@ def list_assets(db: DbSession, _: Annotated[Usuario, Depends(current_user)], bus
     if buscar:
         term = f"%{buscar.strip()}%"
         query = query.where(or_(Activo.nombre.ilike(term), Activo.codigo_qr.ilike(term), Activo.numero_serie.ilike(term)))
+    else:
+        query = query.where(Activo.activo.is_(True))
     return [asset_response(item) for item in db.scalars(query.order_by(Activo.nombre).offset(skip).limit(limit)).all()]
 
 
@@ -154,7 +156,8 @@ def deactivate_asset(asset_id: int, db: DbSession, user: Annotated[Usuario, Depe
     if not asset:
         raise HTTPException(status_code=404, detail="Activo no encontrado")
     asset.activo = False
-    add_history(db, user, asset, "retiro", "Activo retirado del inventario", [("Activo", True, False)])
+    add_history(db, user, asset, "retiro", "Activo dado de baja; se conserva el historial",
+                [("Estado del activo", "Activo", "Dado de baja")])
     db.commit()
 
 

@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class RegistroUsuario(BaseModel):
-    username: str = Field(min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_.-]+$")
+    username: str = Field(min_length=3, max_length=120)
     password: str = Field(min_length=8, max_length=72)
     nombres: str = Field(min_length=2, max_length=80)
     apellidos: str = Field(min_length=2, max_length=80)
@@ -26,7 +26,7 @@ class RegistroUsuario(BaseModel):
 
 
 class LoginUsuario(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
+    username: str = Field(min_length=3, max_length=120)
     password: str = Field(min_length=8, max_length=72)
 
 
@@ -55,7 +55,7 @@ class UsuarioRespuesta(BaseModel):
 
 
 class UsuarioActualizar(BaseModel):
-    username: str | None = Field(default=None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_.-]+$")
+    username: str | None = Field(default=None, min_length=3, max_length=120)
     password: str | None = Field(default=None, min_length=8, max_length=72)
     nombres: str | None = Field(default=None, min_length=2, max_length=80)
     apellidos: str | None = Field(default=None, min_length=2, max_length=80)

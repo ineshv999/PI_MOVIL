@@ -86,6 +86,10 @@ class DetalleRespuesta(BaseModel):
     revisado_por_id: int | None
     registrado_en: datetime | None
     evidencias: list[EvidenciaRespuesta] = Field(default_factory=list)
+    activo_nombre: str = "Activo"
+    activo_folio: str = ""
+    activo_ubicacion: str | None = None
+    activo_foto_url: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 

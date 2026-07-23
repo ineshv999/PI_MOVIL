@@ -68,7 +68,8 @@ def safe_username(value):
 def user_tuple(user):
     full = f"{user.get('nombres', '')} {user.get('apellidos', '')}".strip()
     return (user["id"], user["username"], full, user["rol"].capitalize(), user.get("puesto"),
-            user.get("edad"), user.get("domicilio"), None, 0)
+            user.get("edad"), user.get("domicilio"),
+            f"media/usuarios/{user['id']}/foto" if user.get("foto_url") else None, 0)
 
 
 def building_map():
@@ -151,7 +152,7 @@ def crear_usuario():
         password = request.form.get("password", "")
         if password != request.form.get("password2", ""):
             flash("Las contrasenas no coinciden", "error"); return render_template("crear_usuario.html")
-        payload = {"username": safe_username(email), "password": password, "nombres": name, "apellidos": surname,
+        payload = {"username": email, "password": password, "nombres": name, "apellidos": surname,
                    "correo": email, "telefono": None, "puesto": request.form.get("puesto", "").strip(),
                    "edad": request.form.get("edad", type=int), "domicilio": request.form.get("domicilio", "").strip()}
         role = request.form.get("rol", "usuario").lower()
@@ -403,7 +404,7 @@ def historial_movimientos():
     rows = api_call("GET", "movimientos?limit=1000")
     labels = {"alta": "Alta de activo", "edicion": "Edición de activo", "retiro": "Retiro de activo"}
     history = [(m["id"], m["editor"], m["activo"], m["creado_en"][:10],
-                datetime.fromisoformat(m["creado_en"].replace("Z", "+00:00")).strftime("%H:%M"), labels.get(m["accion"], m["resumen"])) for m in rows]
+                datetime.fromisoformat(m["creado_en"].replace("Z", "+00:00")).strftime("%H:%M"), labels.get(m["accion"], m["resumen"]), m["folio"]) for m in rows]
     return render_template("historial_movimientos.html", historial=history, edificios=[(b["id"], b["nombre"]) for b in buildings], usuarios=[user_tuple(u) for u in users])
 
 
@@ -414,7 +415,7 @@ def historial_movimientos_usuario():
     rows = api_call("GET", "movimientos?limit=1000")
     labels = {"alta": "Alta de activo", "edicion": "Edición de activo", "retiro": "Retiro de activo"}
     history = [(m["id"], m["editor"], m["activo"], m["creado_en"][:10],
-                datetime.fromisoformat(m["creado_en"].replace("Z", "+00:00")).strftime("%H:%M"), labels.get(m["accion"], m["resumen"])) for m in rows]
+                datetime.fromisoformat(m["creado_en"].replace("Z", "+00:00")).strftime("%H:%M"), labels.get(m["accion"], m["resumen"]), m["folio"]) for m in rows]
     return render_template("historial_movimientos_usuario.html", historial=history, edificios=[(b["id"], b["nombre"]) for b in buildings], usuarios=[])
 
 
@@ -424,7 +425,7 @@ def historial_movimientos_usuario():
 def api_detalle_historial(id_historial):
     row = api_call("GET", f"movimientos/{id_historial}")
     moment = datetime.fromisoformat(row["creado_en"].replace("Z", "+00:00"))
-    return jsonify({"success": True, "id_historial": row["id"], "fecha": moment.strftime("%Y-%m-%d"),
+    return jsonify({"success": True, "id_historial": row["id"], "folio": row["folio"], "fecha": moment.strftime("%Y-%m-%d"),
                     "hora": moment.strftime("%H:%M"), "usuario": row["editor"], "detalles": row["detalles"]})
 
 

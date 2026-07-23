@@ -309,7 +309,7 @@ function abrirModal(id, user, nombre, rol, puesto, edad, domicilio, foto) {
 
     const fotoActual = document.getElementById("foto_actual");
     if (foto) {
-        fotoActual.src = "{{ url_for('static', filename='img_personas/') }}" + foto;
+        fotoActual.src = "/" + foto;
         fotoActual.style.display = 'block';
     } else {
         fotoActual.src = "";
