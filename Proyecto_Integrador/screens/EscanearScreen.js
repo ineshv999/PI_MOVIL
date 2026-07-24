@@ -5,6 +5,18 @@ import AppShell from '../components/AppShell';
 import { Card, colors, FormField, PageHeading, PrimaryButton, SecondaryButton } from '../components/ScreenUI';
 import { apiErrorMessage, endpoints } from '../services/api';
 
+function scannedIdentifier(rawValue) {
+  const value = rawValue?.trim() || '';
+  try {
+    const url = new URL(value);
+    const match = url.pathname.match(/\/activo\/(ACT-\d+)\/?$/i);
+    if (match) return match[1].toUpperCase();
+  } catch {
+    // Los folios y codigos internos no son URL y se procesan debajo.
+  }
+  return value;
+}
+
 export default function EscanearScreen({ navigation, route }) {
   const auditId = route.params?.auditoriaId;
   const [permission, requestPermission] = useCameraPermissions();
@@ -14,8 +26,10 @@ export default function EscanearScreen({ navigation, route }) {
 
   const findAsset = async (code) => {
     if (!code?.trim() || locked) return;
-    try { setLocked(true); const value = code.trim(); const folio = value.match(/^ACT-(\d+)$/i);
-      setAsset(folio ? await endpoints.asset(Number(folio[1])) : await endpoints.assetByQr(value)); }
+    try { setLocked(true); const value = scannedIdentifier(code); const folio = value.match(/^ACT-0*(\d+)$/i);
+      const found = folio ? await endpoints.asset(Number(folio[1])) : await endpoints.assetByQr(value);
+      if (!found.activo) throw { detail: 'El QR fue desactivado porque el activo está dado de baja' };
+      setAsset(found); }
     catch (error) { Alert.alert('Activo no encontrado', apiErrorMessage(error)); setLocked(false); }
   };
 

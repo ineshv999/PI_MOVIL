@@ -28,7 +28,7 @@ const PANEL_WIDTH = Math.min(300, SCREEN_WIDTH * 0.78);
 
 const PRINCIPAL_ITEMS = [
   { key: 'Dashboard', label: 'Dashboard', icon: 'grid-outline' },
-  { key: 'Historial', label: 'Historial de movimientos', icon: 'time-outline' },
+  { key: 'Historial', label: 'Historial de auditorías', icon: 'time-outline' },
   { key: 'Escanear', label: 'Escanear activo', icon: 'qr-code-outline' },
 ];
 

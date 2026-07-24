@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     app_name: str = "SGA API"
     app_env: Literal["development", "test", "production"] = "development"
     api_v1_prefix: str = "/api/v1"
+    public_web_url: str = "https://qractivos.xyz"
     debug: bool = Field(default=False, validation_alias="APP_DEBUG")
 
     postgres_db: str

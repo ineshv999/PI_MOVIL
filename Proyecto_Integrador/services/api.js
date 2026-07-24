@@ -97,7 +97,6 @@ export const endpoints = {
   buildings: () => api('/catalogos/edificios'),
   createBuilding: (data) => api('/catalogos/edificios', { method: 'POST', body: data }),
   statuses: () => api('/catalogos/estatus'),
-  movements: () => api('/movimientos?limit=100'),
   assets: (search = '') => api(`/activos${search ? `?buscar=${encodeURIComponent(search)}` : ''}`),
   asset: (id) => api(`/activos/${id}`),
   assetByQr: (code) => api(`/activos/qr/${encodeURIComponent(code)}`),

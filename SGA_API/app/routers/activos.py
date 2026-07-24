@@ -1,6 +1,7 @@
 from typing import Annotated
 from io import BytesIO
 from pathlib import Path
+import re
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -11,16 +12,44 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.dependencies.auth import current_user, require_admin
 from app.models import Activo, DetalleHistorial, Edificio, Estatus, HistorialMovimiento, Usuario
 from app.schemas.activos import ActivoActualizar, ActivoCrear, ActivoRespuesta
 
 router = APIRouter(prefix="/activos", tags=["Activos"])
 DbSession = Annotated[Session, Depends(get_db)]
+settings = get_settings()
 
 
 def asset_response(asset: Activo) -> dict:
     return {**{c.name: getattr(asset, c.name) for c in asset.__table__.columns}, "folio": f"ACT-{asset.id:06d}"}
+
+
+def public_asset_url(asset: Activo) -> str:
+    return f"{settings.public_web_url.rstrip('/')}/activo/{asset_response(asset)['folio']}"
+
+
+def asset_from_identifier(identifier: str, db: Session) -> Activo:
+    value = identifier.strip()
+    match = re.fullmatch(r"ACT-0*(\d+)", value, re.IGNORECASE)
+    asset = db.get(Activo, int(match.group(1))) if match else db.scalar(
+        select(Activo).where(Activo.codigo_qr == value)
+    )
+    if not asset or not asset.activo:
+        raise HTTPException(status_code=404, detail="El QR ya no corresponde a un activo disponible")
+    return asset
+
+
+def qr_response(asset: Activo) -> Response:
+    image = qrcode.make(public_asset_url(asset))
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return Response(
+        output.getvalue(),
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{asset_response(asset)["folio"]}-QR.png"'},
+    )
 
 
 def validate_catalogs(data: ActivoCrear | ActivoActualizar, db: Session) -> None:
@@ -56,9 +85,44 @@ def list_assets(db: DbSession, _: Annotated[Usuario, Depends(current_user)], bus
 @router.get("/qr/{codigo_qr}", response_model=ActivoRespuesta)
 def get_by_qr(codigo_qr: str, db: DbSession, _: Annotated[Usuario, Depends(current_user)]) -> Activo:
     asset = db.scalar(select(Activo).where(Activo.codigo_qr == codigo_qr.strip()))
-    if not asset:
-        raise HTTPException(status_code=404, detail="Activo no encontrado")
+    if not asset or not asset.activo:
+        raise HTTPException(status_code=404, detail="El QR ya no corresponde a un activo disponible")
     return asset_response(asset)
+
+
+@router.get("/public/{identifier}", summary="Ficha publica y limitada de un activo")
+def get_public_asset(identifier: str, db: DbSession) -> dict:
+    asset = asset_from_identifier(identifier, db)
+    building = db.get(Edificio, asset.edificio_id) if asset.edificio_id else None
+    return {
+        "folio": asset_response(asset)["folio"],
+        "nombre": asset.nombre,
+        "descripcion": asset.descripcion,
+        "edificio": building.nombre if building else "Sin edificio",
+        "ubicacion": asset.ubicacion,
+        "garantia": asset.garantia,
+        "activo": asset.activo,
+        "creado_en": asset.creado_en,
+        "tiene_foto": bool(asset.foto_url),
+        "url_publica": public_asset_url(asset),
+    }
+
+
+@router.get("/public/{identifier}/foto", summary="Fotografia publica del activo")
+def get_public_asset_photo(identifier: str, db: DbSession) -> Response:
+    asset = asset_from_identifier(identifier, db)
+    if not asset.foto_url:
+        raise HTTPException(status_code=404, detail="El activo no tiene fotografia")
+    path = Path(asset.foto_url)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="La fotografia no esta disponible")
+    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    return Response(path.read_bytes(), media_type=media_types.get(path.suffix.lower(), "application/octet-stream"))
+
+
+@router.get("/public/{identifier}/qr", summary="QR publico del activo")
+def get_public_asset_qr(identifier: str, db: DbSession) -> Response:
+    return qr_response(asset_from_identifier(identifier, db))
 
 
 @router.get("/{asset_id}", response_model=ActivoRespuesta)
@@ -115,8 +179,9 @@ def update_asset(asset_id: int, data: ActivoActualizar, db: DbSession,
 def download_qr(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(current_user)]) -> Response:
     asset = db.get(Activo, asset_id)
     if not asset: raise HTTPException(status_code=404, detail="Activo no encontrado")
-    image = qrcode.make(asset.codigo_qr); output = BytesIO(); image.save(output, format="PNG")
-    return Response(output.getvalue(), media_type="image/png", headers={"Content-Disposition": f'attachment; filename="{asset_response(asset)["folio"]}-QR.png"'})
+    if not asset.activo:
+        raise HTTPException(status_code=410, detail="El QR fue desactivado porque el activo esta dado de baja")
+    return qr_response(asset)
 
 
 @router.get("/{asset_id}/foto", summary="Consulta la fotografia del activo")

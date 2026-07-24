@@ -1,134 +1,176 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Activo</title>
-    <style>
-        img {
-            border: 1px solid #ccc;
-            padding: 5px;
-            margin: 10px 0;
-        }
-
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 20px;
-        }
-
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: center;
-        }
-
-        th {
-            background: #eee;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ (activo.nombre ~ ' — SGAFAQ') if activo else 'Activo no encontrado — SGAFAQ' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <style>
+    *,*::before,*::after{box-sizing:border-box}*{margin:0}
+    :root{--ink:#030806;--muted:#6e7973;--smoke:#f4f7f5;--line:#d6e0d9;--white:#fff;--green:#00c97a;--green-dark:#008f52;--green-soft:#e6f7ef;--blue:#1565c0;--blue-soft:#e8f0fe;--red:#c0392b;--red-soft:#fdf1f0;--sidebar:260px;--sidebar-w:260px}
+    html,body{width:100%;max-width:100%;overflow-x:hidden}
+    body{font-family:"DM Sans",sans-serif;background:var(--smoke);color:var(--ink);min-height:100vh}
+    a{text-decoration:none;color:inherit}.mono{font-family:"Space Mono",monospace}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar);z-index:100;background:var(--ink);color:#fff;display:flex;flex-direction:column;border-right:1px solid rgba(0,201,122,.12);transition:transform .25s ease}
+    .brand{padding:18px 16px;display:flex;gap:11px;align-items:center;border-bottom:1px solid rgba(255,255,255,.07)}
+    .brand-icon{width:38px;height:38px;border-radius:10px;background:var(--green);color:var(--ink);display:grid;place-items:center;font-size:19px}
+    .brand strong{display:block;letter-spacing:2px;font-size:12px}.brand small{color:#718078;font-size:9px;letter-spacing:1.4px}
+    .user{display:flex;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);align-items:center}
+    .avatar{width:36px;height:36px;border-radius:9px;background:var(--green);overflow:hidden;display:grid;place-items:center;color:var(--ink);font-weight:700}
+    .avatar img{width:100%;height:100%;object-fit:cover}.user-name{font-size:12px;font-weight:600}.user-role{font:700 9px "Space Mono";color:var(--green);text-transform:uppercase;margin-top:3px}
+    .nav{padding:16px 0;flex:1}.nav-label{padding:11px 16px 6px;font:700 8px "Space Mono";letter-spacing:2px;color:#536159;text-transform:uppercase}
+    .nav a{display:flex;gap:10px;align-items:center;padding:10px 16px;color:#98a19c;font-size:13px;border-left:2px solid transparent}
+    .nav a:hover,.nav a.active{color:#fff;background:rgba(0,201,122,.08);border-color:var(--green)}
+    .logout{padding:16px;color:#7e8983;font-size:13px;border-top:1px solid rgba(255,255,255,.07)}
+    .main{margin-left:var(--sidebar);min-height:100vh;max-width:calc(100vw - var(--sidebar))}.main.public{margin-left:0;max-width:100vw;width:100%}
+    .topbar{height:58px;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:20}
+    .topbar-title{font-weight:700}.breadcrumb{font:10px "Space Mono";color:#7c8781;margin-left:14px}.breadcrumb span{color:var(--green-dark);font-weight:700}
+    .top-left{display:flex;align-items:center;min-width:0;flex:1}.menu-toggle{display:none;width:38px;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--smoke);margin-right:10px;cursor:pointer;font-size:20px}.login-btn,.action{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:7px;padding:9px 15px;font-size:13px;font-weight:700;border:1px solid var(--line);cursor:pointer;background:#fff;flex-shrink:0;white-space:nowrap}
+    .login-btn,.action.primary{background:var(--green);border-color:var(--green);color:var(--ink)}
+    .content{width:100%;max-width:1180px;margin:0 auto;padding:24px}.page-head{display:flex;justify-content:space-between;gap:14px;align-items:end;border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:20px}
+    .eyebrow{font:700 9px "Space Mono";letter-spacing:2px;color:var(--green-dark);text-transform:uppercase;margin-bottom:5px}.title{font-size:27px;line-height:1.12}.subtitle{font-size:13px;color:var(--muted);margin-top:5px}
+    .status{display:flex;gap:10px;align-items:center;background:var(--ink);color:#9ca7a1;padding:10px 15px;border-radius:7px;margin-bottom:20px;font:10px "Space Mono"}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(0,201,122,.1)}.status strong{color:var(--green)}
+    .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,310px);gap:18px;align-items:start}.column{display:grid;gap:18px;min-width:0}
+    .card{width:100%;min-width:0;max-width:100%;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 10px rgba(8,13,11,.05)}
+    .card-head{display:flex;gap:9px;align-items:center;font-weight:700;font-size:14px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px}.card-head i{color:var(--green-dark)}.card-head .badge{margin-left:auto}
+    .info{display:grid;grid-template-columns:1fr 1fr;gap:18px 24px}.field label{display:block;font:700 9px "Space Mono";letter-spacing:1px;color:#89948e;text-transform:uppercase;margin-bottom:6px}.value{font-size:14px;font-weight:500;overflow-wrap:anywhere}
+    .badge{display:inline-flex;border-radius:5px;padding:4px 10px;font:700 11px "Space Mono";background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,143,82,.18)}.badge.retired{background:var(--red-soft);color:var(--red)}
+    .folio{color:var(--blue);background:var(--blue-soft)}.observations{margin-top:18px;background:var(--smoke);border:1px solid var(--line);padding:14px;border-radius:8px;color:var(--muted);font-size:13px;line-height:1.6;min-height:56px}
+    .photo{width:100%;max-width:100%;aspect-ratio:4/3;border:1px solid var(--line);background:var(--smoke);border-radius:9px;overflow:hidden;display:grid;place-items:center}.photo img{display:block;width:100%;height:100%;max-width:100%;object-fit:contain}.empty{display:grid;place-items:center;gap:8px;color:#9aa59f;font:10px "Space Mono";letter-spacing:1px}.empty i{font-size:34px}
+    .qr{width:100%;min-width:0;max-width:100%;display:flex;flex-direction:column;align-items:center;background:var(--smoke);border:1px solid var(--line);border-radius:9px;padding:16px;overflow:hidden}.qr img{display:block;width:190px;max-width:100%;height:auto;aspect-ratio:1;background:#fff;padding:8px;border-radius:8px}.qr-note{width:100%;max-width:100%;color:var(--muted);font-size:11px;text-align:center;margin-top:10px;overflow-wrap:anywhere}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.actions .action{padding:9px 8px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:9px}table{width:100%;border-collapse:collapse;min-width:560px}th{background:var(--smoke);font:700 9px "Space Mono";letter-spacing:1px;text-align:left;color:#7d8982;padding:10px 12px}td{border-top:1px solid var(--line);padding:11px 12px;font-size:12px}
+    .not-found{max-width:620px;margin:10vh auto;text-align:center}.not-found i{font-size:58px;color:var(--green-dark)}.not-found .title{margin:14px 0 8px}.not-found .login-btn{margin-top:20px}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(8,13,11,.62);z-index:25}
+    @media(max-width:850px){.sidebar{transform:translateX(-100%);width:min(290px,86vw);z-index:200}.sidebar.open{transform:none;box-shadow:0 12px 40px rgba(0,0,0,.35)}.sidebar-overlay.show{display:block;z-index:199}.menu-btn{display:flex}.main{margin-left:0;max-width:100vw}.grid{grid-template-columns:1fr}.right{grid-template-columns:1fr 1fr}.breadcrumb,.topbar-divider,.topbar-bc{display:none}.topbar-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+    @media(max-width:590px){.content{width:100%;padding:14px 12px}.topbar{padding:0 12px}.topbar .action,.login-btn{padding:8px 10px;font-size:12px}.grid,.right{display:block;width:100%}.column{display:block;width:100%}.column>.card{margin-bottom:14px}.info{grid-template-columns:1fr}.page-head{align-items:flex-start;flex-direction:column}.title{font-size:23px}.photo{aspect-ratio:16/10;max-height:260px}.qr{padding:12px}.qr img{width:min(190px,75vw);max-width:100%}.actions{grid-template-columns:1fr}.card{padding:14px}.status{align-items:flex-start;line-height:1.5}.card-head{align-items:flex-start;flex-wrap:wrap}.card-head .badge{margin-left:0}.value,.observations{overflow-wrap:anywhere}}
+    @media print{.sidebar,.topbar,.page-head,.status,.history,.actions{display:none}.main{margin:0}.content{padding:0}.grid{grid-template-columns:1fr 270px}.card{box-shadow:none}}
+  </style>
 </head>
 <body>
-    <!-- 🔐 Barra superior -->
-    <div style="background:#f5f5f5;padding:10px;text-align:right;">
+{% set logged_in = session.get('access_token') %}
+{% if logged_in %}
+<div class="sidebar-overlay" id="assetSidebarOverlay" onclick="closeAssetSidebar()"></div>
+<aside class="sidebar" id="assetSidebar">
+  <div class="s-brand">
+    <div class="s-brand-icon"><i class="bi bi-box-seam-fill"></i></div>
+    <div class="s-brand-label"><strong>SGAFAQ</strong>Activos Fijos · QR</div>
+  </div>
+  <a class="s-user" href="{{ url_for('editar_perfil' if session.rol == 'administrador' else 'editar_perfil_usuario') }}">
+    <div class="s-avatar" style="overflow:hidden">{% if session.foto_perfil %}<img src="{{ url_for('profile_photo', user_id=session.user_id) }}" alt="Perfil" style="width:100%;height:100%;object-fit:cover">{% else %}<img src="{{ url_for('static', filename='img_personas/default.jpg') }}" alt="Perfil" style="width:100%;height:100%;object-fit:cover">{% endif %}</div>
+    <div class="s-user-info"><div class="s-user-name">{{ session.nombre_completo }}</div><div class="s-user-role">// {{ session.rol }}</div></div>
+  </a>
+  <nav class="s-nav">
+    <div class="s-nav-section">// principal</div>
+    <div class="nav-item" onclick="window.location.href='{{ url_for('dashboard_admin' if session.rol == 'administrador' else 'dashboard_usuario') }}'"><i class="bi bi-grid-1x2-fill nav-icon"></i>Dashboard</div>
+    <div class="nav-item" onclick="window.location.href='{{ url_for('historial_movimientos' if session.rol == 'administrador' else 'historial_movimientos_usuario') }}'"><i class="bi bi-clock-history nav-icon"></i>Historial de movimientos</div>
+    {% if session.rol == 'administrador' %}<div class="nav-item" onclick="window.location.href='{{ url_for('escanear_activo') }}'"><i class="bi bi-qr-code-scan nav-icon"></i>Escanear activo</div>{% endif %}
+    <div class="s-nav-section">// gestión</div>
+    {% if session.rol == 'administrador' %}
+    <div class="nav-item" onclick="window.location.href='{{ url_for('crear_usuario') }}'"><i class="bi bi-people-fill nav-icon"></i>Registrar usuario</div>
+    {% endif %}
+    <div class="nav-item" onclick="window.location.href='{{ url_for('registrar_activo' if session.rol == 'administrador' else 'registrar_activo_usuario') }}'"><i class="bi bi-plus-circle-fill nav-icon"></i>Registrar activo</div>
+    {% if session.rol == 'administrador' %}
+    <div class="nav-item" onclick="window.location.href='{{ url_for('editar_usuario') }}'"><i class="bi bi-pencil-fill nav-icon"></i>Gestionar usuarios</div>
+    {% endif %}
+    <div class="nav-item active" onclick="window.location.href='{{ url_for('inventario_general' if session.rol == 'administrador' else 'inventario_general_usuario') }}'"><i class="bi bi-table nav-icon"></i>Inventario general</div>
+  </nav>
+  <div class="s-footer"><a class="logout-btn" href="{{ url_for('logout') }}"><i class="bi bi-box-arrow-left"></i>Cerrar sesión</a></div>
+</aside>
+{% endif %}
 
-        {% if session.get('user') %}
-            👤 {{ session.get('user') }} |
-            <a href="{{ url_for('logout') }}">Cerrar sesión</a>
-        {% else %}
-            <a href="{{ url_for('login') }}">🔐 Iniciar sesión</a>
-        {% endif %}
+<main class="main{% if not logged_in %} public{% endif %}">
+  <header class="topbar">
+    <div class="topbar-left">{% if logged_in %}<button class="menu-btn" type="button" onclick="toggleAssetSidebar()" aria-label="Abrir menú"><i class="bi bi-list"></i></button>{% endif %}<span class="topbar-title">Ver activo</span><span class="topbar-divider"></span><span class="topbar-bc">sistema / Inventario / <span>Ver activo</span></span></div>
+    {% if logged_in %}
+      <a class="action" href="{{ url_for('inventario_general' if session.rol == 'administrador' else 'inventario_general_usuario') }}"><i class="bi bi-arrow-left"></i>Inventario</a>
+    {% else %}
+      <a class="login-btn" href="{{ url_for('login', next=request.path) }}"><i class="bi bi-box-arrow-in-right"></i>Iniciar sesión</a>
+    {% endif %}
+  </header>
 
+  <div class="content">
+  {% if not activo %}
+    <section class="card not-found">
+      <i class="bi bi-qr-code-scan"></i>
+      <h1 class="title">Activo no encontrado</h1>
+      <p class="subtitle">El código escaneado no corresponde a un activo registrado.</p>
+      <a class="login-btn" href="{{ url_for('login', next=request.path) }}"><i class="bi bi-box-arrow-in-right"></i>Iniciar sesión</a>
+    </section>
+  {% else %}
+    <div class="page-head">
+      <div><div class="eyebrow">// Detalle del activo</div><h1 class="title">{{ activo.nombre }}</h1><p class="subtitle">Información del activo identificado mediante su código QR.</p></div>
+      <span class="badge folio">{{ activo.folio }}</span>
     </div>
-<h2>📦 Información del Activo</h2>
+    <div class="status"><span class="dot"></span>Consulta pública verificada · Estado: <strong>{{ 'ACTIVO' if activo.activo else 'RETIRADO' }}</strong></div>
 
-<p><b>Nombre:</b> {{ activo[0] }}</p>
-<p><b>Ubicación:</b> {{ activo[1] }}</p>
-<p><b>Garantía:</b> {{ activo[2] }}</p>
-<p><b>Fecha entrada:</b> {{ activo[3] }}</p>
-<p><b>Hora entrada:</b> {{ activo[4] }}</p>
-<p><b>Observaciones:</b> {{ activo[7] }}</p>
+    <div class="grid">
+      <div class="column">
+        <section class="card">
+          <div class="card-head"><i class="bi bi-briefcase"></i>Información del activo<span class="badge{% if not activo.activo %} retired{% endif %}">{{ 'Activo' if activo.activo else 'Retirado' }}</span></div>
+          <div class="info">
+            <div class="field"><label>Nombre del activo</label><div class="value">{{ activo.nombre }}</div></div>
+            <div class="field"><label>Folio</label><div class="value mono">{{ activo.folio }}</div></div>
+            <div class="field"><label>Edificio</label><div class="value">{{ activo.edificio or 'Sin edificio' }}</div></div>
+            <div class="field"><label>Ubicación actual</label><div class="value">{{ activo.ubicacion or 'Sin ubicación' }}</div></div>
+            <div class="field"><label>Garantía</label><div class="value">{{ activo.garantia or 'No registrada' }}</div></div>
+            <div class="field"><label>Fecha de registro</label><div class="value mono">{{ activo.fecha_registro }} · {{ activo.hora_registro }}</div></div>
+          </div>
+          <div class="field" style="margin-top:18px"><label>Observaciones</label><div class="observations">{{ activo.descripcion or '— Sin observaciones registradas —' }}</div></div>
+        </section>
 
-<h3>🖼️ Foto del Activo</h3>
-{% if activo[5] %}
-    <img src="/{{ activo[5] }}" width="300" style="max-width:100%; border-radius:10px; object-fit:contain;">
-{% else %}
-    <p>No hay foto registrada</p>
-{% endif %}
+        {% if logged_in and historial %}
+        <section class="card history">
+          <div class="card-head"><i class="bi bi-clock-history"></i>Historial de este activo<span class="badge">{{ historial|length }} movimientos</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Fecha</th><th>Movimiento</th><th>Detalle</th></tr></thead><tbody>
+          {% for item in historial %}
+            <tr><td>{{ item.editor }}</td><td class="mono">{{ item.creado_en[:16]|replace('T', ' ') }}</td><td>{{ item.accion|capitalize }}</td><td>{{ item.resumen }}</td></tr>
+          {% endfor %}
+          </tbody></table></div>
+        </section>
+        {% endif %}
+      </div>
 
-<h3>📱 Código QR</h3>
-<img src="/{{ activo[6] }}" width="220"><br>
-
-                {% if activo[6] %}
-                    <a href="/{{ activo[6] }}" download>
-                        📥 Descargar QR
-                    </a> <br>
-
-                    <button onclick="imprimirQR('/{{ activo[6] }}')">
-                        🖨️ Imprimir QR
-                    </button>
-                {% else %}
-                    SIN QR
-                {% endif %}
-
-<!-- 🔥 HISTORIAL DEL ACTIVO -->
-<h3>📜 Historial de este Activo</h3>
-
-{% if historial %}
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Usuario</th>
-            <th>Fecha</th>
-            <th>Hora</th>
-            <th>Movimiento</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for h in historial %}
-        <tr>
-            <td>{{ h[0] }}</td>
-            <td>{{ h[1] }}</td>
-            <td>{{ h[2] }}</td>
-            <td>{{ h[3] }}</td>
-            <td>{{ h[4] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No hay movimientos registrados para este activo.</p>
-{% endif %}
-
-<br><br>
-
-{% if session.get('rol') and session.get('rol')|lower == 'administrador' %}
-    <a href="{{ url_for('inventario_general') }}">⬅ Volver al inventario</a>
-{% endif %}
-
+      <div class="column right">
+        <section class="card">
+          <div class="card-head"><i class="bi bi-image"></i>Foto del activo</div>
+          <div class="photo">
+          {% if activo.tiene_foto %}
+            <img src="{{ url_for('public_asset_media', folio=activo.folio, kind='foto') }}" alt="Fotografía de {{ activo.nombre }}" onerror="this.parentElement.innerHTML='<div class=&quot;empty&quot;><i class=&quot;bi bi-image&quot;></i><span>SIN FOTO</span></div>'">
+          {% else %}
+            <div class="empty"><i class="bi bi-image"></i><span>SIN FOTO</span></div>
+          {% endif %}
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-head"><i class="bi bi-qr-code"></i>Código QR</div>
+          <div class="qr"><img id="assetQr" src="{{ url_for('public_asset_media', folio=activo.folio, kind='qr') }}" alt="QR {{ activo.folio }}"><div class="qr-note">Al escanear abre la ficha pública de este activo.</div></div>
+          <div class="actions">
+            <a class="action primary" href="{{ url_for('public_asset_media', folio=activo.folio, kind='qr') }}" download="{{ activo.folio }}-QR.png"><i class="bi bi-download"></i>Descargar</a>
+            <button class="action" type="button" onclick="window.print()"><i class="bi bi-printer"></i>Imprimir</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  {% endif %}
+  </div>
+</main>
+{% if logged_in %}
 <script>
-function imprimirQR(url) {
-    const ventana = window.open('', '_blank');
-    ventana.document.write(`
-        <html>
-            <head>
-                <title>Imprimir QR</title>
-            </head>
-            <body style="text-align:center;">
-                <h3>Código QR</h3>
-                <img src="${url}" style="width:200px;">
-                <script>
-                    window.onload = function() {
-                        window.print();
-                        window.close();
-                    }
-                <\/script>
-            </body>
-        </html>
-    `);
-    ventana.document.close();
-}
+  function toggleAssetSidebar(){
+    document.getElementById('assetSidebar').classList.toggle('open');
+    document.getElementById('assetSidebarOverlay').classList.toggle('show');
+  }
+  function closeAssetSidebar(){
+    document.getElementById('assetSidebar').classList.remove('open');
+    document.getElementById('assetSidebarOverlay').classList.remove('show');
+  }
+  window.addEventListener('resize', function(){ if(window.innerWidth > 850) closeAssetSidebar(); });
 </script>
-
+{% endif %}
 </body>
 </html>

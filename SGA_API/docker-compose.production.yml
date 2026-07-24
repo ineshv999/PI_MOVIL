@@ -5,6 +5,7 @@ x-api: &api
   environment: &api-env
     APP_ENV: production
     APP_DEBUG: "false"
+    PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-https://qractivos.xyz}
     POSTGRES_HOST: postgres
     POSTGRES_PORT: 5432
     POSTGRES_DB: ${POSTGRES_DB}

@@ -1033,3 +1033,104 @@ tbody tr:hover { background: rgba(0,201,122,0.03); }
   .s-user-name { font-size: 11.5px; }
 }
 
+/* =========================================================
+   AJUSTES RESPONSIVE TRANSVERSALES
+   Evitan desbordes en plantillas heredadas con estilos inline.
+========================================================= */
+html, body { width: 100%; max-width: 100%; }
+img, video { max-width: 100%; }
+canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+.card, .modal, .form-page-wrap, .table-wrap,
+.topbar-left, .topbar-right, .page-header > * { min-width: 0; }
+.btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+.m-actions, .ph-actions, .filter-bar {
+  flex-wrap: wrap;
+}
+.m-actions > *, .ph-actions > * { min-width: 0; }
+.modal input, .modal select, .modal textarea,
+.card input, .card select, .card textarea { max-width: 100%; }
+
+@media(max-width:768px) {
+  /* Formularios con columnas fijas heredadas */
+  [style*="grid-template-columns:260px 1fr"],
+  [style*="grid-template-columns: 260px 1fr"],
+  [style*="grid-template-columns:250px 1fr"],
+  [style*="grid-template-columns: 250px 1fr"],
+  [style*="grid-template-columns:300px 1fr"],
+  [style*="grid-template-columns: 300px 1fr"],
+  [style*="grid-template-columns:120px 1fr"],
+  [style*="grid-template-columns: 120px 1fr"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  /* Resúmenes de cuatro columnas dentro de gráficas y modales */
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns:repeat(4, 1fr)"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .modal > [style*="display: flex"],
+  .modal > [style*="display:flex"],
+  .modal [style*="justify-content: space-between"],
+  .modal [style*="justify-content:space-between"] {
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+  }
+  .modal [style*="display: flex"] > select,
+  .modal [style*="display:flex"] > select,
+  .modal [style*="display: flex"] > input,
+  .modal [style*="display:flex"] > input {
+    flex: 1 1 180px;
+    width: 100%;
+  }
+
+  .page-header > .btn,
+  .page-header .ph-actions,
+  .page-header .ph-actions .btn {
+    width: 100%;
+  }
+  .page-header > .btn,
+  .page-header .ph-actions .btn { justify-content: center; }
+
+  .filter-bar .form-input,
+  .filter-bar .btn {
+    flex: 1 1 150px;
+    max-width: none !important;
+  }
+
+  .chart-container,
+  [style*="height: 300px"],
+  [style*="height:300px"] {
+    max-width: 100% !important;
+  }
+}
+
+@media(max-width:480px) {
+  .stats-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns:repeat(4, 1fr)"],
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .filter-bar .form-input,
+  .filter-bar .btn,
+  .m-actions .btn,
+  .ph-actions .btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .topbar-title { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal { padding-left: 14px; padding-right: 14px; }
+  .modal-top-bar { margin-left: -14px; margin-right: -14px; }
+}
+

@@ -119,7 +119,13 @@ def login():
         full_name = f"{me['nombres']} {me['apellidos']}".strip()
         session.update(user_id=me["id"], username=me["username"], rol=me["rol"],
                        nombre=full_name, nombre_completo=full_name, foto_perfil=me.get("foto_url"))
+        next_url = session.pop("login_next", None)
+        if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+            return redirect(next_url)
         return redirect(url_for("dashboard_admin" if me["rol"] == "administrador" else "dashboard_usuario"))
+    next_url = request.args.get("next", "")
+    if next_url.startswith("/") and not next_url.startswith("//"):
+        session["login_next"] = next_url
     return render_template("login.html")
 
 
@@ -321,12 +327,46 @@ def eliminar_activo_usuario(id_activo): return eliminar_activo(id_activo)
 @app.get("/ver_activo/<int:id_activo>")
 @login_required
 def ver_activo(id_activo):
-    asset = api_call("GET", f"activos/{id_activo}")
+    return redirect(url_for("public_asset", folio=f"ACT-{id_activo:06d}"))
+
+
+@app.get("/activo/<folio>")
+def public_asset(folio):
+    try:
+        asset = api_call("GET", f"activos/public/{folio}", auth=False)
+    except ApiError as error:
+        if error.status_code == 404:
+            return render_template("ver_activo.html", activo=None, historial=[]), 404
+        raise
     created = datetime.fromisoformat(asset["creado_en"].replace("Z", "+00:00"))
-    data = (asset["nombre"], asset.get("ubicacion"), asset.get("garantia"), created.strftime("%Y-%m-%d"),
-            created.strftime("%H:%M"), f"media/activos/{id_activo}/foto" if asset.get("foto_url") else None,
-            f"media/activos/{id_activo}/qr", asset.get("descripcion"))
-    return render_template("ver_activo.html", activo=data, historial=[])
+    history = []
+    if session.get("access_token"):
+        try:
+            history = [
+                row for row in api_call("GET", "movimientos?limit=1000")
+                if row.get("folio", "").lower() == asset["folio"].lower()
+            ]
+        except ApiError:
+            history = []
+    asset["fecha_registro"] = created.strftime("%Y-%m-%d")
+    asset["hora_registro"] = created.strftime("%H:%M")
+    return render_template("ver_activo.html", activo=asset, historial=history)
+
+
+@app.get("/activo/<folio>/<kind>")
+def public_asset_media(folio, kind):
+    if kind not in {"qr", "foto"}:
+        return "No encontrado", 404
+    try:
+        content = api_call("GET", f"activos/public/{folio}/{kind}", auth=False)
+    except ApiError as error:
+        if error.status_code == 404:
+            return "No encontrado", 404
+        raise
+    if kind == "qr":
+        return Response(content, mimetype="image/png",
+                        headers={"Content-Disposition": f'inline; filename="{folio}-QR.png"'})
+    return Response(content, mimetype="image/jpeg")
 
 
 @app.get("/media/activos/<int:id_activo>/<kind>")

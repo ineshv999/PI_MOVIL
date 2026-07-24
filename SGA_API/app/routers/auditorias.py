@@ -175,7 +175,7 @@ def review_asset(audit_id: int, asset_id: int, data: RevisionActivo, db: DbSessi
 @router.put("/{audit_id}/qr/{codigo_qr}/revision", response_model=DetalleRespuesta)
 def review_by_qr(audit_id: int, codigo_qr: str, data: RevisionActivo, db: DbSession,
                  user: Annotated[Usuario, Depends(current_user)]) -> DetalleAuditoria:
-    asset = db.scalar(select(Activo).where(Activo.codigo_qr == codigo_qr.strip()))
+    asset = db.scalar(select(Activo).where(Activo.codigo_qr == codigo_qr.strip(), Activo.activo.is_(True)))
     if not asset: raise HTTPException(status_code=404, detail="Codigo QR no encontrado")
     return review_asset(audit_id, asset.id, data, db, user)
 
