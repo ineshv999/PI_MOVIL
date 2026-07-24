@@ -62,7 +62,7 @@
   </div>
   <a class="s-user" href="{{ url_for('editar_perfil' if session.rol == 'administrador' else 'editar_perfil_usuario') }}">
     <div class="s-avatar" style="overflow:hidden">{% if session.foto_perfil %}<img src="{{ url_for('profile_photo', user_id=session.user_id) }}" alt="Perfil" style="width:100%;height:100%;object-fit:cover">{% else %}<img src="{{ url_for('static', filename='img_personas/default.jpg') }}" alt="Perfil" style="width:100%;height:100%;object-fit:cover">{% endif %}</div>
-    <div class="s-user-info"><div class="s-user-name">{{ session.nombre_completo }}</div><div class="s-user-role">// {{ session.rol }}</div></div>
+    <div class="s-user-info"><div class="s-user-name">{{ session.nombre_completo }}</div><div class="s-user-role">// {{ session.rol|capitalize }}</div></div>
   </a>
   <nav class="s-nav">
     <div class="s-nav-section">// principal</div>

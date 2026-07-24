@@ -128,7 +128,7 @@
       </div>
         <div class="s-user-info">
             <div class="s-user-name">{{ session.nombre_completo }}</div>
-            <div class="s-user-role">// ADMIN</div>
+            <div class="s-user-role">// {{ session.rol|capitalize }}</div>
         </div>
     </div>
 
@@ -176,7 +176,7 @@
             onmouseover="this.style.backgroundColor='var(--smoke-2)'" 
             onmouseout="this.style.backgroundColor=''">
             <div class="topbar-user-av">{{ session.nombre_completo[:2]|upper }}</div>
-            <span>Admin</span>
+            <span>{{ session.rol|capitalize }}</span>
         </div>
       </div>
     </div>
@@ -494,7 +494,7 @@ function mostrarActivo(activo) {
     if (activo.usuario_nombre && activo.usuario_nombre !== '—') {
         // Mostrar nombre completo con badge de rol
         const rolBadge = activo.usuario_rol === 'Administrador' 
-            ? '<span class="badge b-green" style="margin-left: 20px; font-size: 9px;">Admin</span>' 
+            ? '<span class="badge b-green" style="margin-left: 20px; font-size: 9px;">Administrador</span>' 
             : '<span class="badge b-blue" style="margin-left: 20px; font-size: 9px;">Usuario</span>';
         usuarioElement.innerHTML = `${activo.usuario_nombre} ${rolBadge}`;
     } else if (activo.usuario_username && activo.usuario_username !== '—') {

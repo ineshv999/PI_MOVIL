@@ -41,7 +41,7 @@
         </div>
         <div class="s-user-info">
             <div class="s-user-name">{{ session.nombre_completo }}</div>
-            <div class="s-user-role">// User</div>
+            <div class="s-user-role">// {{ session.rol|capitalize }}</div>
         </div>
     </div>
 
@@ -84,7 +84,7 @@
             <div class="topbar-user-av" style="overflow: hidden; width: 26px; height: 26px; border-radius: 5px;">
                 {{ session.nombre_completo[:2]|upper }}
             </div>
-            <span>User</span>
+            <span>{{ session.rol|capitalize }}</span>
         </div>
       </div>
     </div>
