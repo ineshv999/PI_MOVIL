@@ -1046,6 +1046,28 @@ canvas {
 }
 .card, .modal, .form-page-wrap, .table-wrap,
 .topbar-left, .topbar-right, .page-header > * { min-width: 0; }
+.content,
+.form-page-wrap,
+.scan-wrap {
+  width: 100%;
+  max-width: none !important;
+}
+.date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 145px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+.date-filter .form-input {
+  width: 100%;
+  max-width: none !important;
+}
 .btn {
   max-width: 100%;
   white-space: normal;
@@ -1106,6 +1128,10 @@ canvas {
     flex: 1 1 150px;
     max-width: none !important;
   }
+  .filter-bar .date-filter {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
 
   .chart-container,
   [style*="height: 300px"],
@@ -1126,6 +1152,10 @@ canvas {
   .filter-bar .btn,
   .m-actions .btn,
   .ph-actions .btn {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .filter-bar .date-filter {
     flex: 1 1 100%;
     width: 100%;
   }

@@ -134,8 +134,14 @@
           {% endfor %}
         </select>
         <div class="f-div"></div>
-        <input class="form-input" type="date" id="filterFechaInicio" style="max-width:140px" placeholder="Desde">
-        <input class="form-input" type="date" id="filterFechaFin" style="max-width:140px" placeholder="Hasta">
+        <label class="date-filter">
+          <span>Fecha inicial</span>
+          <input class="form-input" type="date" id="filterFechaInicio">
+        </label>
+        <label class="date-filter">
+          <span>Fecha final</span>
+          <input class="form-input" type="date" id="filterFechaFin">
+        </label>
         <button class="btn btn-ghost btn-sm" onclick="limpiarFiltros()">
           <i class="bi bi-x-lg"></i> Limpiar
         </button>
