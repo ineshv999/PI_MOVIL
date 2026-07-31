@@ -100,7 +100,12 @@
 
         <div class="form-group">
           <label class="form-label">contraseña</label>
-          <input class="form-input" type="password" name="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+          <div style="position:relative;">
+            <input class="form-input" type="password" name="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" style="padding-right:44px;">
+            <button type="button" id="loginPassToggle" onclick="toggleLoginPassword()" aria-label="Mostrar contraseña" title="Mostrar contraseña" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:6px;cursor:pointer;color:rgba(8,13,11,.5);font-size:16px;">
+              <i class="bi bi-eye" id="loginPassEye" aria-hidden="true"></i>
+            </button>
+          </div>
           <div class="form-error" id="loginPassErr"></div>
         </div>
 
@@ -114,6 +119,18 @@
 
 <script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
 <script>
+  function toggleLoginPassword() {
+    const input = document.getElementById('loginPass');
+    const icon = document.getElementById('loginPassEye');
+    const button = document.getElementById('loginPassToggle');
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    icon.className = showing ? 'bi bi-eye' : 'bi bi-eye-slash';
+    button.setAttribute('aria-label', showing ? 'Mostrar contraseña' : 'Ocultar contraseña');
+    button.setAttribute('title', showing ? 'Mostrar contraseña' : 'Ocultar contraseña');
+    input.focus();
+  }
+
   // Función de validación para el login
   function validateLoginForm() {
     // Obtener valores
