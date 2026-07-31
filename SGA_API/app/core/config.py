@@ -1,8 +1,8 @@
 from functools import lru_cache
 from typing import Literal
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,16 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
+    @field_validator("public_web_url", mode="before")
+    @classmethod
+    def validate_public_web_url(cls, value: object) -> str:
+        candidate = str(value or "").strip().rstrip("/")
+        parsed = urlparse(candidate)
+        local_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.hostname in local_hosts:
+            return "https://qractivos.xyz"
+        return candidate
 
     @property
     def cors_origins(self) -> list[str]:

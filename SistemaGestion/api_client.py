@@ -12,7 +12,7 @@ class ApiError(RuntimeError):
 
 class SgaApi:
     def __init__(self) -> None:
-        self.base_url = os.getenv("API_BASE_URL", "http://api:8000/api/v1").rstrip("/")
+        self.base_url = os.getenv("API_BASE_URL", "https://api.qractivos.xyz/api/v1").rstrip("/")
         self.timeout = float(os.getenv("API_TIMEOUT_SECONDS", "15"))
 
     def request(self, method: str, path: str, *, auth: bool = True, retry: bool = True, **kwargs):

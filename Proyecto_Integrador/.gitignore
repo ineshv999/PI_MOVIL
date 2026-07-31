@@ -1,5 +1,6 @@
 node_modules/
 .expo/
+.codex-render-check/
 dist/
 dist-test/
 .env

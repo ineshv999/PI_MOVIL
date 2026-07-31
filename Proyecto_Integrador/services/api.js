@@ -1,8 +1,7 @@
-import { Platform } from 'react-native';
 import { getStoredItem, removeStoredItem, setStoredItem } from './storage';
 
-const fallbackHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || `http://${fallbackHost}:8001/api/v1`).replace(/\/$/, '');
+const PUBLIC_API_URL = 'https://api.qractivos.xyz/api/v1';
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || PUBLIC_API_URL).replace(/\/$/, '');
 
 let refreshPromise = null;
 let authFailureHandler = null;
@@ -15,7 +14,7 @@ export function apiErrorMessage(error) {
   if (typeof error?.detail === 'string') return error.detail;
   if (Array.isArray(error?.detail)) return error.detail.map((item) => item.msg).join('\n');
   if (error?.message === 'Network request failed' || error instanceof TypeError) {
-    return `No fue posible conectar con ${API_BASE_URL}. Verifica que Docker este activo y que el dispositivo pueda acceder a esa direccion.`;
+    return `No fue posible conectar con ${API_BASE_URL}. Verifica tu conexion a Internet e intenta nuevamente.`;
   }
   return error?.message || 'Ocurrio un error inesperado.';
 }

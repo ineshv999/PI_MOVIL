@@ -1,5 +1,6 @@
 tmp/
 **/.env
+**/.env.render
 **/node_modules/
 **/venv/
 **/.expo/
