@@ -33,7 +33,7 @@ app.include_router(catalogos.router, prefix=settings.api_v1_prefix)
 app.include_router(usuarios.router, prefix=settings.api_v1_prefix)
 app.include_router(auditorias.router, prefix=settings.api_v1_prefix)
 app.include_router(movimientos.router, prefix=settings.api_v1_prefix)
-
+app.include_router(health.router, prefix=settings.api_v1_prefix)
 
 @app.exception_handler(Exception)
 async def unexpected_error(_: Request, exc: Exception) -> JSONResponse:
