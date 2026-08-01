@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     database_url_override: str | None = Field(default=None, validation_alias="DATABASE_URL")
     backend_cors_origins: str = ""
+    backend_cors_origin_regex: str = Field(
+        default=r"^https://[A-Za-z0-9-]+\.exp\.direct$",
+        validation_alias="BACKEND_CORS_ORIGIN_REGEX",
+    )
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
@@ -55,6 +59,11 @@ class Settings(BaseSettings):
             for origin in self.backend_cors_origins.split(",")
             if origin.strip()
         ]
+
+    @property
+    def cors_origin_regex(self) -> str | None:
+        value = self.backend_cors_origin_regex.strip()
+        return value or None
 
     @property
     def database_url(self) -> str:
