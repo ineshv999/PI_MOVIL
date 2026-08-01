@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -24,6 +24,8 @@ class Persona(Base):
     edad: Mapped[int | None] = mapped_column(Integer, nullable=True)
     domicilio: Mapped[str | None] = mapped_column(String(250), nullable=True)
     foto_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    foto_contenido: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    foto_mime: Mapped[str | None] = mapped_column(String(50), nullable=True)
     usuario: Mapped["Usuario | None"] = relationship(back_populates="persona", uselist=False)
 
 
@@ -74,6 +76,8 @@ class Activo(Base):
     ubicacion: Mapped[str | None] = mapped_column(String(180), nullable=True)
     garantia: Mapped[str | None] = mapped_column(String(120), nullable=True)
     foto_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    foto_contenido: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    foto_mime: Mapped[str | None] = mapped_column(String(50), nullable=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

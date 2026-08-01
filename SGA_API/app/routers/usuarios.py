@@ -8,7 +8,6 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.config import get_settings
 from app.core.security import encrypt_value, hash_password
 from app.dependencies.auth import require_admin
 from app.models import Activo, Auditoria, DetalleAuditoria, Evidencia, HistorialMovimiento, Persona, RefreshToken, Rol, Usuario
@@ -17,7 +16,6 @@ from app.schemas.auth import RegistroUsuario, UsuarioActualizar, UsuarioRespuest
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"], dependencies=[Depends(require_admin)])
 DbSession = Annotated[Session, Depends(get_db)]
-settings = get_settings()
 
 
 @router.get("", response_model=list[UsuarioRespuesta])
@@ -63,13 +61,17 @@ async def upload_profile_photo(user_id: int, db: DbSession, archivo: UploadFile 
     if archivo.content_type not in allowed: raise HTTPException(status_code=415, detail="Formato de imagen no permitido")
     content = await archivo.read(5 * 1024 * 1024 + 1)
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
-    folder = Path(settings.upload_directory) / "perfiles"; folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
-    user.persona.foto_url = str(path); db.commit(); db.refresh(user); return serialize_user(user)
+    user.persona.foto_contenido = content
+    user.persona.foto_mime = archivo.content_type
+    user.persona.foto_url = f"db://perfiles/{uuid4().hex}{allowed[archivo.content_type]}"
+    db.commit(); db.refresh(user); return serialize_user(user)
 
 
 @router.get("/{user_id}/foto")
 def get_profile_photo(user_id: int, db: DbSession) -> Response:
     user = db.get(Usuario, user_id)
+    if user and user.persona.foto_contenido:
+        return Response(user.persona.foto_contenido, media_type=user.persona.foto_mime or "application/octet-stream")
     if not user or not user.persona.foto_url:
         raise HTTPException(status_code=404, detail="El usuario no tiene fotografia")
     path = Path(user.persona.foto_url)
@@ -147,7 +149,7 @@ def purge_user(user_id: int, db: DbSession,
     if owned_asset_ids: db.execute(delete(Activo).where(Activo.id.in_(owned_asset_ids)))
     db.execute(delete(RefreshToken).where(RefreshToken.usuario_id == user.id))
     person = user.persona
-    photo_path = Path(person.foto_url) if person.foto_url else None
+    photo_path = Path(person.foto_url) if person.foto_url and not person.foto_url.startswith("db://") else None
     db.execute(delete(Usuario).where(Usuario.id == user.id))
     db.execute(delete(Persona).where(Persona.id == person.id)); db.commit()
     if photo_path:

@@ -23,7 +23,8 @@ settings = get_settings()
 
 
 def asset_response(asset: Activo) -> dict:
-    return {**{c.name: getattr(asset, c.name) for c in asset.__table__.columns}, "folio": f"ACT-{asset.id:06d}"}
+    public_columns = (c for c in asset.__table__.columns if c.name not in {"foto_contenido", "foto_mime"})
+    return {**{c.name: getattr(asset, c.name) for c in public_columns}, "folio": f"ACT-{asset.id:06d}"}
 
 
 def public_asset_url(asset: Activo) -> str:
@@ -111,6 +112,8 @@ def get_public_asset(identifier: str, db: DbSession) -> dict:
 @router.get("/public/{identifier}/foto", summary="Fotografia publica del activo")
 def get_public_asset_photo(identifier: str, db: DbSession) -> Response:
     asset = asset_from_identifier(identifier, db)
+    if asset.foto_contenido:
+        return Response(asset.foto_contenido, media_type=asset.foto_mime or "application/octet-stream")
     if not asset.foto_url:
         raise HTTPException(status_code=404, detail="El activo no tiene fotografia")
     path = Path(asset.foto_url)
@@ -188,6 +191,8 @@ def download_qr(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(curr
 def get_asset_photo(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(current_user)]) -> Response:
     asset = db.get(Activo, asset_id)
     if not asset: raise HTTPException(status_code=404, detail="Activo no encontrado")
+    if asset.foto_contenido:
+        return Response(asset.foto_contenido, media_type=asset.foto_mime or "application/octet-stream")
     if not asset.foto_url: raise HTTPException(status_code=404, detail="El activo no tiene fotografia")
     path = Path(asset.foto_url)
     if not path.is_file(): raise HTTPException(status_code=404, detail="La fotografia no esta disponible")
@@ -203,8 +208,10 @@ async def upload_asset_photo(asset_id: int, db: DbSession, user: Annotated[Usuar
     if archivo.content_type not in allowed: raise HTTPException(status_code=415, detail="Formato de imagen no permitido")
     content = await archivo.read(5 * 1024 * 1024 + 1)
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
-    folder = Path(settings.upload_directory) / "activos"; folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
-    previous = asset.foto_url; asset.foto_url = str(path)
+    previous = asset.foto_url
+    asset.foto_contenido = content
+    asset.foto_mime = archivo.content_type
+    asset.foto_url = f"db://activos/{uuid4().hex}{allowed[archivo.content_type]}"
     latest = db.scalar(select(HistorialMovimiento).where(HistorialMovimiento.activo_id == asset.id)
                        .order_by(HistorialMovimiento.creado_en.desc()).limit(1))
     if previous is None and latest and latest.accion == "alta":
@@ -230,7 +237,7 @@ def deactivate_asset(asset_id: int, db: DbSession, user: Annotated[Usuario, Depe
 def purge_asset(asset_id: int, db: DbSession, _: Annotated[Usuario, Depends(require_admin)]) -> None:
     asset = db.get(Activo, asset_id)
     if not asset: raise HTTPException(status_code=404, detail="Activo no encontrado")
-    photo_path = Path(asset.foto_url) if asset.foto_url else None
+    photo_path = Path(asset.foto_url) if asset.foto_url and not asset.foto_url.startswith("db://") else None
     from app.models import DetalleAuditoria, Evidencia
     detail_ids = list(db.scalars(select(DetalleAuditoria.id).where(DetalleAuditoria.activo_id == asset.id)).all())
     evidence_paths = [Path(path) for path in db.scalars(select(Evidencia.ruta).where(Evidencia.detalle_id.in_(detail_ids))).all()] if detail_ids else []
