@@ -1,0 +1,21 @@
+:10000 {
+
+    encode gzip zstd
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+    }
+
+    # Bloquear documentación y métricas
+    @private path /docs* /redoc* /openapi.json /metrics
+    respond @private 404
+
+    reverse_proxy http://sga-api-private-1:10000 {
+        health_uri /api/v1/health
+        health_interval 10s
+        health_timeout 5s
+    }
+}
