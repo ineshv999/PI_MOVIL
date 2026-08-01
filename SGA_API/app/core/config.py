@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     encryption_key: str
     refresh_token_expire_days: int = 7
+    upload_directory: str = "uploads"
     evidence_directory: str = "uploads/evidencias"
     max_evidence_size_mb: int = 5
     login_attempts_per_minute: int = 10

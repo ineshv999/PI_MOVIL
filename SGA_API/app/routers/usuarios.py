@@ -8,6 +8,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.core.security import encrypt_value, hash_password
 from app.dependencies.auth import require_admin
 from app.models import Activo, Auditoria, DetalleAuditoria, Evidencia, HistorialMovimiento, Persona, RefreshToken, Rol, Usuario
@@ -16,6 +17,7 @@ from app.schemas.auth import RegistroUsuario, UsuarioActualizar, UsuarioRespuest
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"], dependencies=[Depends(require_admin)])
 DbSession = Annotated[Session, Depends(get_db)]
+settings = get_settings()
 
 
 @router.get("", response_model=list[UsuarioRespuesta])
@@ -61,7 +63,7 @@ async def upload_profile_photo(user_id: int, db: DbSession, archivo: UploadFile 
     if archivo.content_type not in allowed: raise HTTPException(status_code=415, detail="Formato de imagen no permitido")
     content = await archivo.read(5 * 1024 * 1024 + 1)
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
-    folder = Path("uploads/perfiles"); folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
+    folder = Path(settings.upload_directory) / "perfiles"; folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
     user.persona.foto_url = str(path); db.commit(); db.refresh(user); return serialize_user(user)
 
 

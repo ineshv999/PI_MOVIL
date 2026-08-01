@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.core.observability import login_limiter
 from app.core.security import (create_access_token, create_refresh_token, decode_refresh_token,
                                encrypt_value, hash_password, hash_token_id, verify_password)
@@ -18,6 +19,7 @@ from app.schemas.auth import LoginUsuario, RefreshSolicitud, RegistroUsuario, To
 
 router = APIRouter(prefix="/auth", tags=["Autenticacion"])
 DbSession = Annotated[Session, Depends(get_db)]
+settings = get_settings()
 
 
 def serialize_user(user: Usuario) -> UsuarioRespuesta:
@@ -131,7 +133,7 @@ async def update_my_photo(db: DbSession, user: Annotated[Usuario, Depends(curren
     if archivo.content_type not in allowed: raise HTTPException(status_code=415, detail="Formato de imagen no permitido")
     content = await archivo.read(5 * 1024 * 1024 + 1)
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
-    folder = Path("uploads/perfiles"); folder.mkdir(parents=True, exist_ok=True)
+    folder = Path(settings.upload_directory) / "perfiles"; folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
     user.persona.foto_url = str(path); db.commit(); db.refresh(user)
     return serialize_user(user)

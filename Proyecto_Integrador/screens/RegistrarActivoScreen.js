@@ -58,8 +58,12 @@ export default function RegistrarActivoScreen({ navigation }) {
       <PrimaryButton title={saving?'Registrando...':'Registrar activo'} icon="add-circle-outline" onPress={save} disabled={saving}/></Card>
   </ScrollView>
   <Modal visible={!!created} transparent animationType="fade"><View style={styles.overlay}><View style={styles.modal}><Text style={styles.success}>● REGISTRO EXITOSO</Text><Text style={styles.modalTitle}>¡Activo registrado!</Text><Text style={styles.folio}>{created?.folio}</Text>
-    {qrData && <Image source={{uri:qrData}} style={styles.qr}/>} {qrError && <Text style={styles.qrError}>{qrError}</Text>}<Text style={styles.notice}>El QR es unico para este activo y no cambia aunque edites su informacion.</Text>
-    {qrData && <PrimaryButton title="Descargar QR" icon="download-outline" onPress={download}/>} {qrData && <SecondaryButton title="Imprimir" icon="print-outline" onPress={printQr}/>}<SecondaryButton title="Cerrar" icon="close-outline" onPress={()=>{setCreated(null);setQrError(null);navigation.navigate('InventarioGeneral');}}/></View></View></Modal>
+    {qrData ? <Image source={{uri:qrData}} style={styles.qr}/> : null}
+    {qrError ? <Text style={styles.qrError}>{qrError}</Text> : null}
+    <Text style={styles.notice}>El QR es unico para este activo y no cambia aunque edites su informacion.</Text>
+    {qrData ? <PrimaryButton title="Descargar QR" icon="download-outline" onPress={download}/> : null}
+    {qrData ? <SecondaryButton title="Imprimir" icon="print-outline" onPress={printQr}/> : null}
+    <SecondaryButton title="Cerrar" icon="close-outline" onPress={()=>{setCreated(null);setQrError(null);navigation.navigate('InventarioGeneral');}}/></View></View></Modal>
   </AppShell>;
 }
 function Field({label,value,onChange,error,placeholder,keyboardType,multiline,box}) { return <View style={[styles.field,box&&styles.half]}><Text style={styles.label}>{label}</Text><TextInput style={[styles.input,multiline&&styles.area,error&&styles.invalid]} value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.placeholder} keyboardType={keyboardType} multiline={multiline}/>{error&&<Text style={styles.error}>{error}</Text>}</View>; }

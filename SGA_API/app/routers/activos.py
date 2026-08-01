@@ -203,7 +203,7 @@ async def upload_asset_photo(asset_id: int, db: DbSession, user: Annotated[Usuar
     if archivo.content_type not in allowed: raise HTTPException(status_code=415, detail="Formato de imagen no permitido")
     content = await archivo.read(5 * 1024 * 1024 + 1)
     if len(content) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="La foto supera 5 MB")
-    folder = Path("uploads/activos"); folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
+    folder = Path(settings.upload_directory) / "activos"; folder.mkdir(parents=True, exist_ok=True); path = folder / f"{uuid4().hex}{allowed[archivo.content_type]}"; path.write_bytes(content)
     previous = asset.foto_url; asset.foto_url = str(path)
     latest = db.scalar(select(HistorialMovimiento).where(HistorialMovimiento.activo_id == asset.id)
                        .order_by(HistorialMovimiento.creado_en.desc()).limit(1))
