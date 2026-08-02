@@ -1,7 +1,3 @@
-FROM nginx:alpine
+FROM haproxy:3.0-alpine
 
-COPY nginx.conf /etc/nginx/nginx.conf
-
-EXPOSE 10000
-
-CMD ["nginx", "-g", "daemon off;"]
+COPY haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
