@@ -215,12 +215,13 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">Rol *</label>
-        <select class="form-input" name="rol" id="rol">
+        <label class="form-label">Rol del sistema</label>
+        <select class="form-input" id="rol" disabled aria-disabled="true">
           <option value="Administrador">Administrador</option>
           <option value="Auditor">Auditor</option>
           <option value="Usuario">Usuario</option>
         </select>
+        <div class="form-hint">El rol se asignó al crear la cuenta y no puede modificarse posteriormente.</div>
       </div>
 
       <div class="form-group">
