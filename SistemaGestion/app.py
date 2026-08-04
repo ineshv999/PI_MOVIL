@@ -10,12 +10,21 @@ from flask import (Flask, Response, flash, jsonify, redirect, render_template,
 
 from api_client import ApiError, api
 
+from flask import send_from_directory
+
 
 app = Flask(__name__)
 app.secret_key = os.getenv("WEB_SECRET_KEY", secrets.token_hex(32))
 app.config.update(MAX_CONTENT_LENGTH=5 * 1024 * 1024, SESSION_COOKIE_HTTPONLY=True,
                   SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=os.getenv("APP_ENV") == "production")
 
+@app.route("/loaderio-61a652c36728ec3ce831b79f85b21586.txt")
+def loaderio_verification():
+    return send_from_directory(
+        "static",
+        "loaderio-61a652c36728ec3ce831b79f85b21586.txt",
+        mimetype="text/plain"
+    )
 
 @app.before_request
 def csrf_and_session():
